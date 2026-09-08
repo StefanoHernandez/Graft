@@ -13,6 +13,7 @@ dependencies = [
     "pgvector>=0.3",
     "fastapi-users[sqlalchemy]>=13",
     "openai>=1.40",
+    "anthropic>=0.40",
     "cryptography>=43",
 ]
 
