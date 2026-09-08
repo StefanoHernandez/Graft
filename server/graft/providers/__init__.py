@@ -6,6 +6,7 @@ from .base import (
     ProviderError,
 )
 from .config import EmbeddingConfig, LLMConfig
+from .factory import build_embedder, build_llm
 
 __all__ = [
     "ChatMessage",
@@ -15,4 +16,6 @@ __all__ = [
     "LLMProvider",
     "ProviderConnectionError",
     "ProviderError",
+    "build_embedder",
+    "build_llm",
 ]
