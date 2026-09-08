@@ -52,7 +52,8 @@ class OpenAICompatibleEmbedder:
 
     async def embed(self, texts: Sequence[str], *, model: str) -> list[list[float]]:
         resp = await self._client.embeddings.create(model=model, input=list(texts))
-        return [item.embedding for item in resp.data]
+        ordered = sorted(resp.data, key=lambda item: getattr(item, "index", 0))
+        return [item.embedding for item in ordered]
 
     async def test_connection(self) -> None:
         try:

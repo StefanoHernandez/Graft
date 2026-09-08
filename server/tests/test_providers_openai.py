@@ -39,6 +39,16 @@ class _FakeEmbeddings:
         return SimpleNamespace(data=[SimpleNamespace(embedding=v) for v in self._vectors])
 
 
+class _FakeEmbeddingsIndexed:
+    def __init__(self, data):
+        self._data = data
+        self.calls = []
+
+    async def create(self, **kwargs):
+        self.calls.append(kwargs)
+        return SimpleNamespace(data=self._data)
+
+
 class _FakeModels:
     def __init__(self, error=None):
         self._error = error
@@ -95,3 +105,27 @@ async def test_test_connection_wraps_errors():
     llm = OpenAICompatibleLLM(client)
     with pytest.raises(ProviderConnectionError):
         await llm.test_connection()
+
+
+async def test_stream_chat_skips_chunks_without_choices():
+    # A usage-only / content-filter chunk with choices=[] must be skipped, not crash.
+    client = _fake_client(chunks=[
+        SimpleNamespace(choices=[]),
+        _chunk("hi"),
+        SimpleNamespace(choices=[]),
+    ])
+    llm = OpenAICompatibleLLM(client)
+    out = [tok async for tok in llm.stream_chat([{"role": "user", "content": "x"}], model="m")]
+    assert out == ["hi"]
+
+
+async def test_embed_returns_index_ordered_vectors():
+    # Even if the server returns data out of order, embed() must sort by index.
+    client = SimpleNamespace(
+        embeddings=_FakeEmbeddingsIndexed([
+            SimpleNamespace(index=1, embedding=[9.0]),
+            SimpleNamespace(index=0, embedding=[8.0]),
+        ]),
+    )
+    emb = OpenAICompatibleEmbedder(client)
+    assert await emb.embed(["a", "b"], model="e") == [[8.0], [9.0]]

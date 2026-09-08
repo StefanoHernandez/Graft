@@ -12,7 +12,7 @@ dependencies = [
     "alembic>=1.13",
     "pgvector>=0.3",
     "fastapi-users[sqlalchemy]>=13",
-    "openai>=1.40",
+    "openai>=1.40,<4",
     "anthropic>=0.40",
     "cryptography>=43",
 ]
