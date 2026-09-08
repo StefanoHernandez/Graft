@@ -170,21 +170,13 @@ Tutte le tabelle con `id UUID PK`, `created_at`, `updated_at`.
   `owner` vede tutto; `editor` opera solo sui bot in `bot_members`.
 - **documents**: `bot_id FK`, `filename`, `mime_type`, `status`, `error?`,
   `chunk_count`.
-- **chunks** (tabella **partizionata LIST per `embedding_dim`**):
-  `document_id FK`, `bot_id FK` (denormalizzato per filtro veloce),
-  `content TEXT`, `embedding_dim INT`, `embedding vector(N)`, `metadata JSONB`,
-  `position INT`. Partizioni figlie per dimensione (768, 1024, 1536, 3072…),
-  ognuna con `vector(N)` tipizzato + **indice HNSW** proprio + indice su
-  `bot_id`. La query, nota la dimensione del bot, colpisce **una sola
-  partizione** → ricerca ANN indicizzata anche con provider misti tra bot.
+- **chunks** — vedi §6.1 per la strategia di storage vettoriale multi-dimensione.
+  Colonne logiche: `document_id FK`, `bot_id FK` (denormalizzato per filtro
+  veloce), `content TEXT`, `embedding_dim INT`, `embedding vector`,
+  `metadata JSONB`, `position INT`.
 - **conversations**: `bot_id FK`, `visitor_session`, `started_at`.
 - **messages**: `conversation_id FK`, `role` ∈ {user, assistant}, `content`,
   `citations JSONB`.
-
-> **Dimensione vettore risolta** (§13.1): partizione per dimensione. Ogni bot ha
-> un unico modello embeddings → dimensione fissa per bot; il retrieval è sempre
-> per-bot, quindi confronta solo vettori dello stesso spazio. Nuove dimensioni =
-> nuova partizione, senza toccare le altre.
 
 ## 6. Pipeline RAG (strict grounded)
 
@@ -203,6 +195,23 @@ Tutte le tabelle con `id UUID PK`, `created_at`, `updated_at`.
 6. **Stream** dal provider LLM del bot → token al widget via SSE.
 7. Allega **citazioni** (documento + posizione) al messaggio finale; persiste
    conversazione e messaggi.
+
+### 6.1 Storage vettoriale multi-dimensione
+
+Vincolo pgvector: le partizioni Postgres **condividono il typmod** del parent →
+non si possono avere partizioni con `vector(N)` di dimensioni diverse; inoltre
+l'indice HNSW **richiede** una dimensione fissa. Quindi il partizionamento per
+dimensione non è praticabile.
+
+- **MVP (scelto)**: singola tabella `chunks` con colonna `embedding vector`
+  **senza dimensione fissa**, campo `embedding_dim` per sicurezza, **ricerca
+  esatta** `ORDER BY embedding <=> :q LIMIT k` filtrata per `bot_id`. Nessun
+  indice ANN. Adeguato ai volumi da documenti caricati (≈10³–10⁴ chunk/bot).
+  Il retrieval è sempre per-bot → confronta solo vettori dello stesso modello.
+- **Scalabilità (fast-follow)**: **tabelle separate per dimensione**
+  (`chunks_768`, `chunks_1536`, …), ognuna `vector(N)` + **indice HNSW**; un
+  `ChunkStore` instrada per `embedding_dim` del bot. Migrazione trasparente:
+  stessa interfaccia dati.
 
 ## 7. Provider abstraction
 
@@ -304,7 +313,7 @@ graft/
 
 **Dentro**: multi-bot; upload PDF/MD/TXT (parser selezionabile, ingestion in
 background su coda Redis); RAG strict grounded + citazioni; 4 adapter provider
-(6 backend LLM); Postgres/pgvector con `chunks` partizionati per dimensione;
+(6 backend LLM); Postgres/pgvector (ricerca esatta per-bot, §6.1);
 widget Shadow DOM streaming; admin SPA Refine; multi-utente + RBAC
 (owner/editor/viewer) con `bot_members`; log conversazioni; allowed_origins +
 rate limit Redis; `docker compose up`.
@@ -314,9 +323,10 @@ end-user, SaaS hosted, analytics avanzate, RBAC per-bot fine, SDK client.
 
 ## 13. Decisioni risolte
 
-1. **Dimensione vettore multi-modello** → tabella `chunks` **partizionata LIST
-   per `embedding_dim`**, ogni partizione `vector(N)` + HNSW proprio. Retrieval
-   per-bot colpisce una sola partizione. Supporta provider misti tra bot.
+1. **Dimensione vettore multi-modello** → vedi §6.1. MVP: singola tabella
+   `chunks`, colonna `vector` senza dimensione, **ricerca esatta** filtrata per
+   `bot_id` (il partizionamento per dimensione non è praticabile in pgvector).
+   Fast-follow: tabelle per-dimensione con HNSW.
 2. **Parsing PDF** → **entrambi, selezionabili**: `pypdf` di default (immagine
    base snella), `unstructured` come extra opzionale attivabile via config.
 3. **Rate limit** → **Redis** (contatori TTL). Aggiunge il servizio `redis` in
