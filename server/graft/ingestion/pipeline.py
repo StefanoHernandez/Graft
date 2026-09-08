@@ -19,6 +19,14 @@ async def ingest_document(
     chunk_size: int = 1000,
     chunk_overlap: int = 200,
 ) -> int:
+    """Parse, chunk, embed, and store a document's chunks.
+
+    The caller must pass an already-persisted Document (a committed row) and
+    cedes session ownership to this function, which commits on success and,
+    on failure, rolls back, marks the document ``failed`` with the error, and
+    re-raises. The embedder is dependency-injected (built by the caller from
+    the bot's embedding_config).
+    """
     try:
         document.status = "processing"
         await session.flush()
@@ -27,6 +35,7 @@ async def ingest_document(
         pieces = chunk_text(text, size=chunk_size, overlap=chunk_overlap)
 
         if not pieces:
+            await replace_document_chunks(session, document.id, [])
             document.status = "ready"
             document.chunk_count = 0
             await session.commit()

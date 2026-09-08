@@ -82,3 +82,22 @@ async def test_ingest_failure_marks_failed_and_reraises(db_engine):
         count = len((await session.execute(
             select(Chunk).where(Chunk.document_id == doc.id))).scalars().all())
         assert count == 0
+
+
+async def test_reingest_empty_clears_existing_chunks(db_engine):
+    maker = async_sessionmaker(db_engine, expire_on_commit=False)
+    async with maker() as session:
+        doc = await _make_doc(session)
+        # First ingest: real content -> chunks stored.
+        n1 = await ingest_document(session, doc, ("abcdefghij" * 300).encode(),
+                                   _FakeEmbedder(dim=4), embedding_model="m")
+        assert n1 > 0
+        # Re-ingest: new content parses to empty -> old chunks must be gone.
+        n2 = await ingest_document(session, doc, b"   \n  ",
+                                   _FakeEmbedder(dim=4), embedding_model="m")
+        assert n2 == 0
+        assert doc.status == "ready"
+        assert doc.chunk_count == 0
+        remaining = (await session.execute(
+            select(Chunk).where(Chunk.document_id == doc.id))).scalars().all()
+        assert remaining == []
