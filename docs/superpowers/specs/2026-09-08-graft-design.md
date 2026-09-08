@@ -137,11 +137,16 @@ Endpoint consumato dal widget. Non richiede login (utenti anonimi del sito).
 
 ### 4.4 Ingestion pipeline
 
-Upload documento → **parse** (PDF via `pypdf`/`unstructured`, MD/TXT nativi) →
-**chunking** (dimensione + overlap configurabili, default sensato) → **embed**
+Upload documento → **parse** → **chunking** (dimensione + overlap configurabili,
+default sensato) → **embed**
 di ogni chunk col provider embeddings del bot → **persist** chunk + vettore +
 metadata (documento, posizione) su Postgres/pgvector. Stato documento:
 `pending → processing → ready | failed`.
+
+**Parser selezionabile**: default `pypdf` (leggero); `unstructured` (robusto)
+attivabile via config di ingestion. `unstructured` ha dipendenze pesanti → resta
+un **extra opzionale** (dependency group / variante immagine), non nell'immagine
+base. Il processing gira in background (coda su Redis) per non bloccare l'upload.
 
 ### 4.5 RAG engine
 
@@ -161,22 +166,25 @@ Tutte le tabelle con `id UUID PK`, `created_at`, `updated_at`.
   `llm_config JSONB` (provider + modello + endpoint), `embedding_config JSONB`,
   `system_prompt TEXT`, `theme JSONB`, `retrieval_config JSONB` (top_k, soglia).
   Le **API key provider sono cifrate at rest**.
-- **bot_members** (opzionale, estensione vicina): `user_id`, `bot_id` — assegna
-  bot agli editor. In v1 i ruoli sono globali; la tabella può arrivare subito
-  dopo.
+- **bot_members** (v1): `user_id`, `bot_id` — assegna bot agli editor. Il ruolo
+  `owner` vede tutto; `editor` opera solo sui bot in `bot_members`.
 - **documents**: `bot_id FK`, `filename`, `mime_type`, `status`, `error?`,
   `chunk_count`.
-- **chunks**: `document_id FK`, `bot_id FK` (denormalizzato per filtro veloce),
-  `content TEXT`, `embedding vector(N)`, `metadata JSONB`, `position INT`.
-  Indice: `ivfflat`/`hnsw` su `embedding`; indice su `bot_id`.
+- **chunks** (tabella **partizionata LIST per `embedding_dim`**):
+  `document_id FK`, `bot_id FK` (denormalizzato per filtro veloce),
+  `content TEXT`, `embedding_dim INT`, `embedding vector(N)`, `metadata JSONB`,
+  `position INT`. Partizioni figlie per dimensione (768, 1024, 1536, 3072…),
+  ognuna con `vector(N)` tipizzato + **indice HNSW** proprio + indice su
+  `bot_id`. La query, nota la dimensione del bot, colpisce **una sola
+  partizione** → ricerca ANN indicizzata anche con provider misti tra bot.
 - **conversations**: `bot_id FK`, `visitor_session`, `started_at`.
 - **messages**: `conversation_id FK`, `role` ∈ {user, assistant}, `content`,
   `citations JSONB`.
 
-> Nota dimensione vettore: `N` dipende dal modello embeddings scelto per il bot.
-> Gestione: colonna dimensionata sul default; supporto multi-dimensione tra bot
-> diversi va deciso in fase di plan (opzione: tabella chunks per-dimensione o
-> `vector` senza dimensione fissa + check applicativo).
+> **Dimensione vettore risolta** (§13.1): partizione per dimensione. Ogni bot ha
+> un unico modello embeddings → dimensione fissa per bot; il retrieval è sempre
+> per-bot, quindi confronta solo vettori dello stesso spazio. Nuove dimensioni =
+> nuova partizione, senza toccare le altre.
 
 ## 6. Pipeline RAG (strict grounded)
 
@@ -222,7 +230,7 @@ differire), modello, endpoint/base_url, api_key (cifrata). Endpoint admin per
   in ingresso + stesso elenco come **whitelist CORS**. Un dominio non
   autorizzato non può usare il bot né passare la CORS.
 - **Rate limiting** per `(bot, IP/session)` sulla Chat API (protezione costi
-  LLM e abuso).
+  LLM e abuso), **backed da Redis** (contatori con TTL, coerenti tra worker).
 - **API key provider cifrate at rest** (chiave di cifratura da env del deploy).
 - **Admin auth**: JWT (FastAPI Users), password hashed (argon2/bcrypt).
 - **RBAC**: enforcement backend (dependency FastAPI per ruolo) **e** UI
@@ -238,7 +246,7 @@ differire), modello, endpoint/base_url, api_key (cifrata). Endpoint admin per
 | editor | –      | read assegnati | CRUD assegnati    | read          | –        |
 | viewer | –      | read        | read                 | read          | –        |
 
-(In v1, "assegnati" = tutti finché `bot_members` non è attiva.)
+("assegnati" = bot in `bot_members` per quell'editor; attivo in v1.)
 
 ## 9. Superficie API (bozza)
 
@@ -263,14 +271,21 @@ provider custom sottile).
 
 ```
 graft/
-  docker-compose.yml        # app + db(pgvector)
+  docker-compose.yml        # app + db(pgvector) + redis
   server/                   # FastAPI (Python)
   widget/                   # TS vanilla → graft.js
   admin/                    # Refine + Ant Design SPA
 ```
 
-- `docker compose up` avvia tutto; migrazioni DB al boot (Alembic).
-- Config via env: chiave cifratura, secret JWT, connessione DB, CORS di base.
+- Tre servizi: `app` (FastAPI + build widget/admin), `db` (Postgres+pgvector),
+  `redis` (rate limit + coda ingestion). Worker ingestion: task in background
+  che consuma la coda Redis.
+- Immagine base **snella** (`pypdf`); variante/extra con `unstructured` per chi
+  serve parsing pesante.
+- `docker compose up` avvia tutto; migrazioni DB al boot (Alembic), incluse le
+  partizioni `chunks` per dimensione.
+- Config via env: chiave cifratura, secret JWT, connessione DB, URL Redis, CORS
+  di base.
 - Provider key e config bot si impostano dalla dashboard, non da env.
 
 ## 11. Testing
@@ -287,22 +302,26 @@ graft/
 
 ## 12. Scope MVP — riepilogo
 
-**Dentro**: multi-bot; upload PDF/MD/TXT; RAG strict grounded + citazioni; 4
-adapter provider (6 backend LLM); Postgres/pgvector; widget Shadow DOM streaming;
-admin SPA Refine; multi-utente + RBAC (owner/editor/viewer); log conversazioni;
-allowed_origins + rate limit; `docker compose up`.
+**Dentro**: multi-bot; upload PDF/MD/TXT (parser selezionabile, ingestion in
+background su coda Redis); RAG strict grounded + citazioni; 4 adapter provider
+(6 backend LLM); Postgres/pgvector con `chunks` partizionati per dimensione;
+widget Shadow DOM streaming; admin SPA Refine; multi-utente + RBAC
+(owner/editor/viewer) con `bot_members`; log conversazioni; allowed_origins +
+rate limit Redis; `docker compose up`.
 
 **Fuori**: auto-crawl, re-index schedulato, ingestion push API, identità
 end-user, SaaS hosted, analytics avanzate, RBAC per-bot fine, SDK client.
 
-## 13. Domande aperte / da decidere nel piano
+## 13. Decisioni risolte
 
-1. **Dimensione vettore multi-modello**: come gestire bot con embeddings di
-   dimensioni diverse (colonna fissa vs strategia flessibile).
-2. **Libreria parsing PDF**: `pypdf` (leggero) vs `unstructured` (robusto, pesante)
-   — scegliere in base a dimensione immagine Docker.
-3. **Rate limit store**: in-process vs Redis (aggiunge un servizio). Default:
-   in-DB/in-process per MVP.
-4. **`bot_members` in v1** o subito dopo: incide su enforcement RBAC editor.
-5. **Refine data provider**: `simple-rest` standard vs provider custom per
-   allineare la forma delle risposte FastAPI.
+1. **Dimensione vettore multi-modello** → tabella `chunks` **partizionata LIST
+   per `embedding_dim`**, ogni partizione `vector(N)` + HNSW proprio. Retrieval
+   per-bot colpisce una sola partizione. Supporta provider misti tra bot.
+2. **Parsing PDF** → **entrambi, selezionabili**: `pypdf` di default (immagine
+   base snella), `unstructured` come extra opzionale attivabile via config.
+3. **Rate limit** → **Redis** (contatori TTL). Aggiunge il servizio `redis` in
+   compose; riusato anche come coda per l'ingestion in background.
+4. **`bot_members`** → **in v1**. RBAC editor legato ai bot assegnati fin da
+   subito.
+5. **Refine data provider** → **custom**, per allineare paginazione/filtri/sort
+   della forma di risposta FastAPI a Refine.
