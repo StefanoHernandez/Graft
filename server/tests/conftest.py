@@ -8,12 +8,13 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from testcontainers.community.postgres import PostgresContainer
 
-from graft.main import app
+from graft.db import get_session
+from graft.main import app as _app
 
 
 @pytest_asyncio.fixture
 async def client():
-    transport = ASGITransport(app=app)
+    transport = ASGITransport(app=_app)
     async with AsyncClient(transport=transport, base_url="http://test") as c:
         yield c
 
@@ -54,3 +55,18 @@ async def db_session(db_engine):
     maker = async_sessionmaker(db_engine, expire_on_commit=False)
     async with maker() as session:
         yield session
+
+
+@pytest_asyncio.fixture
+async def ready_client(db_engine):
+    maker = async_sessionmaker(db_engine, expire_on_commit=False)
+
+    async def _override():
+        async with maker() as session:
+            yield session
+
+    _app.dependency_overrides[get_session] = _override
+    transport = ASGITransport(app=_app)
+    async with AsyncClient(transport=transport, base_url="http://test") as c:
+        yield c
+    _app.dependency_overrides.clear()
