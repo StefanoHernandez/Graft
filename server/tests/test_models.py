@@ -2,14 +2,10 @@ import uuid
 
 from sqlalchemy import select
 
-from graft.models import Base, Bot
+from graft.models import Bot
 
 
 async def test_bot_roundtrip(db_engine):
-    async with db_engine.begin() as conn:
-        await conn.exec_driver_sql("CREATE EXTENSION IF NOT EXISTS vector")
-        await conn.run_sync(Base.metadata.create_all)
-
     from sqlalchemy.ext.asyncio import async_sessionmaker
 
     maker = async_sessionmaker(db_engine, expire_on_commit=False)

@@ -1,6 +1,9 @@
+import os
 
 import pytest
 import pytest_asyncio
+from alembic import command
+from alembic.config import Config
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from testcontainers.community.postgres import PostgresContainer
@@ -25,6 +28,18 @@ def pg():
         container.sync_url = f"postgresql+psycopg://{base}"
         container.async_url = f"postgresql+asyncpg://{base}"
         yield container
+
+
+@pytest.fixture(scope="session", autouse=True)
+def migrated(pg):
+    os.environ["DATABASE_URL"] = pg.async_url
+    from graft.config import get_settings
+    get_settings.cache_clear()
+    cfg = Config("alembic.ini")
+    cfg.set_main_option("script_location", "migrations")
+    cfg.set_main_option("sqlalchemy.url", pg.sync_url)
+    command.upgrade(cfg, "head")
+    yield
 
 
 @pytest_asyncio.fixture
