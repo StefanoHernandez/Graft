@@ -2,7 +2,7 @@
 title: Ingestion pipeline
 updated: 2026-09-10
 sources: [server/graft/ingestion/*.py, server/tests/**/test_ingestion_*.py, server/tests/unit/test_parse_process.py, docs/superpowers/plans/2026-09-10-graft-redesign-plan.md]
-source_commit: d54d0bb
+source_commit: 78da67d
 confidence: high
 ---
 
@@ -38,22 +38,36 @@ worker.
   cannot be stopped: a timeout that leaves the work running is not a timeout. The child
   always exits 0 with one JSON object (`{"sections": [...]}` or `{"error": code}`); the
   parent kills **and reaps** it on timeout or cancellation.
+- **`jobs.py`** — ownership of one attempt, one short transaction per call, no provider
+  call inside any of them: `claim_document` (a single UPDATE decides the winner, refuses
+  a document whose `attempt_count` is exhausted), `heartbeat_document` (extends the lease,
+  `False` once the run no longer owns the row), `finish_document` (locks the row
+  `FOR UPDATE`, re-checks run id **and** the bot's current embedding fingerprint, then
+  replaces chunks and marks `ready` atomically), `fail_document` (only the owning run).
 - **`store.replace_document_chunks(session, document_id, chunks)`** — deletes existing
   chunks for the document, then `add_all` the new ones (idempotent re-ingest).
-- **`pipeline.ingest_document(session, document, data, embedder, *, embedding_model, chunk_size=1000, chunk_overlap=200) -> int`**
-  — orchestrates the above.
+- **`pipeline.ingest_document(sessionmaker, document_id, embedder, *, embedding_model,
+  storage_root, chunk_size=1000, chunk_overlap=200, batch_size=32, lease_seconds=120,
+  heartbeat_seconds=30, parse_timeout=30, max_attempts=3) -> int`** — orchestrates the
+  above. It takes a **sessionmaker and an id**, not a live ORM object: the attempt
+  outlives any one session, and a session held open across a provider call is the lock
+  we are avoiding.
 
 ## `ingest_document` flow
 
-1. set `document.status = "processing"`, flush;
-2. `parse_document` → sections; `chunk_sections` → drafts (no text → `ParseError`);
-3. `await embedder.embed([d.content for d in drafts], model=embedding_model)` → vectors;
-4. build `Chunk` rows (`content`, `embedding`, `embedding_dim=len(vector)`,
-   `position`, `chunk_metadata=draft.metadata`) via `zip(drafts, vectors, strict=True)`;
-5. `replace_document_chunks`, set `ready` + `chunk_count`, **clear `error`**, commit,
-   return count;
-6. **on any exception**: `rollback()` (discards partial chunk writes), set
-   `status="failed"`, `error=str(exc)`, commit, **re-raise**.
+1. `claim_document` → run id, or `ClaimFailed` if another worker owns it or the
+   attempts are exhausted; read filename, mime, `storage_key` and the bot's fingerprint
+   in the same short transaction;
+2. start the heartbeat task (cancelled in `finally`);
+3. no `storage_key` → `ParseError("missing_source")`, **before** any provider call;
+4. `parse_in_subprocess` on the stored original → sections; `chunk_sections` → drafts;
+5. `_embed_in_batches` (32 per call) — rejects a batch that returns the wrong count or
+   changes dimension, which would poison every later `<=>` for that bot;
+6. `finish_document` publishes atomically; a `False` means the document was reclaimed,
+   deleted or reconfigured mid-flight, and the work is dropped rather than forced through;
+7. **on an exception**: `fail_document(code)` — the stable code, never a provider
+   message — then re-raise. **Cancellation is not a failure**: the document stays
+   `processing` so the lease expires and the dispatcher retries it.
 
 ## Contract & invariants
 

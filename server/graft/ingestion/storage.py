@@ -49,6 +49,11 @@ def save_source(
     return f"{bot_id}/{document_id}/{SOURCE_NAME}"
 
 
+def source_path(root: Path, storage_key: str) -> Path:
+    """Absolute path of a stored original, validated to stay inside the root."""
+    return _resolved(root, storage_key)
+
+
 def read_source(root: Path, storage_key: str) -> bytes:
     return _resolved(root, storage_key).read_bytes()
 
