@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from graft.ingestion.pipeline import ingest_document
+from graft.ingestion.types import ParseError
 from graft.models import Bot, Chunk, Document
 
 
@@ -59,14 +60,17 @@ async def test_ingest_stores_chunks_and_marks_ready(db_engine):
         assert all(r.bot_id == doc.bot_id for r in rows)
 
 
-async def test_ingest_empty_document_marks_ready_zero(db_engine):
+async def test_ingest_empty_document_fails_with_a_named_code(db_engine):
+    # Deliberate change: a document with no extractable text is a failed upload,
+    # not a ready document with zero chunks that silently answers nothing.
     maker = async_sessionmaker(db_engine, expire_on_commit=False)
     async with maker() as session:
         doc = await _make_doc(session)
-        n = await ingest_document(session, doc, b"   \n  ", _FakeEmbedder(),
+        with pytest.raises(ParseError) as excinfo:
+            await ingest_document(session, doc, b"   \n  ", _FakeEmbedder(),
                                   embedding_model="m")
-        assert n == 0
-        assert doc.status == "ready"
+        assert excinfo.value.code == "no_extractable_text"
+        assert doc.status == "failed"
         assert doc.chunk_count == 0
 
 
@@ -84,20 +88,33 @@ async def test_ingest_failure_marks_failed_and_reraises(db_engine):
         assert count == 0
 
 
-async def test_reingest_empty_clears_existing_chunks(db_engine):
+async def test_failed_reingest_keeps_old_chunks_but_leaves_the_document_failed(db_engine):
     maker = async_sessionmaker(db_engine, expire_on_commit=False)
     async with maker() as session:
         doc = await _make_doc(session)
-        # First ingest: real content -> chunks stored.
         n1 = await ingest_document(session, doc, ("abcdefghij" * 300).encode(),
                                    _FakeEmbedder(dim=4), embedding_model="m")
         assert n1 > 0
-        # Re-ingest: new content parses to empty -> old chunks must be gone.
-        n2 = await ingest_document(session, doc, b"   \n  ",
-                                   _FakeEmbedder(dim=4), embedding_model="m")
-        assert n2 == 0
-        assert doc.status == "ready"
-        assert doc.chunk_count == 0
+        # A failed re-ingest leaves the previous chunks physically in place; the
+        # document status is what keeps them out of retrieval.
+        with pytest.raises(ParseError):
+            await ingest_document(session, doc, b"   \n  ",
+                                  _FakeEmbedder(dim=4), embedding_model="m")
+        assert doc.status == "failed"
         remaining = (await session.execute(
             select(Chunk).where(Chunk.document_id == doc.id))).scalars().all()
-        assert remaining == []
+        assert len(remaining) == n1
+
+
+async def test_success_clears_the_error_from_a_previous_attempt(db_engine):
+    maker = async_sessionmaker(db_engine, expire_on_commit=False)
+    async with maker() as session:
+        doc = await _make_doc(session)
+        with pytest.raises(RuntimeError):
+            await ingest_document(session, doc, b"some text here", _BoomEmbedder(),
+                                  embedding_model="m")
+        assert doc.error
+        await ingest_document(session, doc, b"some text here", _FakeEmbedder(dim=4),
+                              embedding_model="m")
+        assert doc.status == "ready"
+        assert doc.error is None

@@ -1,0 +1,3 @@
+Prima riga.
+
+Seconda riga con accenti: perché.
