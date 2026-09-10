@@ -1,12 +1,16 @@
 ---
 title: Decisions
 updated: 2026-09-10
-sources: [docs/superpowers/specs/2026-09-08-graft-design.md, server/graft/**]
-source_commit: 4826fc6
+sources: [docs/superpowers/specs/2026-09-08-graft-design.md, server/graft/**, docs/superpowers/specs/2026-09-10-graft-redesign.md, docs/superpowers/plans/2026-09-10-graft-redesign-plan.md]
+source_commit: c16dbae
 confidence: high
 ---
 
 # Decisions
+
+## Planned redesign decisions — 2026-09-10
+
+The [new spec](../../docs/superpowers/specs/2026-09-10-graft-redesign.md) selects persistent originals, provenance-aware chunking, embedding fingerprint/config lock, Redis/arq worker with leases, owner auth before upload, widget before full dashboard, and a live RAG evaluation gate. These are implementation targets, not properties of the current code. The existing architecture and completed phases remain. Full multi-user RBAC/Refine is deferred beyond the first release, not removed.
 
 Key choices and why. Each links to the engineering page that implements it.
 

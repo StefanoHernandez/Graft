@@ -1,8 +1,8 @@
 ---
 title: Graft — portable overview
 updated: 2026-09-10
-sources: [README.md, docs/superpowers/specs/2026-09-08-graft-design.md]
-source_commit: 4826fc6
+sources: [README.md, docs/superpowers/specs/2026-09-10-graft-redesign.md, docs/superpowers/plans/2026-09-10-graft-redesign-plan.md]
+source_commit: c16dbae
 confidence: high
 ---
 
@@ -22,9 +22,7 @@ confidence: high
   pgvector · Alembic · Redis · multi-provider LLM/embeddings (OpenAI-compatible,
   Anthropic, Google, Mistral) · pypdf · Fernet · uv · pytest + testcontainers ·
   Docker Compose. Planned: Refine/Ant Design admin SPA; TypeScript Shadow-DOM widget.
-- **Milestones / next steps:** Phase 3b (Redis queue + worker) → Phase 4 (retrieval,
-  grounded prompt, SSE) → Phase 5 (auth/RBAC) → Phase 6 (Admin API) → Phase 7
-  (Admin SPA) → Phase 8 (widget).
+- **Milestones / next steps:** [Revised plan](../docs/superpowers/plans/2026-09-10-graft-redesign-plan.md): baseline and reliable ingestion with owner auth → RAG/chat/widget and live evaluation → minimal admin and deploy → full RBAC/Refine. Planning only; no new functionality implemented.
 - **Important decisions to remember:**
   - Self-hosted standalone Docker service; host site integrates only via one script tag.
   - Single Postgres+pgvector for everything; **dimensionless** vector column, exact
@@ -52,7 +50,6 @@ confidence: high
 - **Technologies / skills represented:** Python/FastAPI, async SQLAlchemy,
   pgvector/RAG, LLM provider integration, Alembic, Docker, TDD with testcontainers,
   (planned) React/Refine + TypeScript widget.
-- **Important next steps:** Phase 3b async ingestion worker, then Phase 4 RAG +
-  Chat API.
-- **Long-term notes:** 8-phase roadmap toward a shippable v1 (self-hosted OSS).
+- **Important next steps:** Revised plan task 0 (baseline verification), then reliable ingestion with owner auth, RAG and early widget.
+- **Long-term notes:** Revised delivery milestones supersede original 8-phase execution order.
   Licence not yet chosen. Repo pushed to GitHub for collaboration.

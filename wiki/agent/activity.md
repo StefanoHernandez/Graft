@@ -24,3 +24,10 @@ Append-only. Newest last.
 ## [prior] project build (phases 1–3a)
 - Built via spec → per-phase TDD plans → subagent-driven implementation/review → merge to `main`.
 - History is in `git log` and `docs/superpowers/plans/`.
+
+## [2026-09-10] redesign handoff
+- Agent: Codex. Trigger: owner requested detailed redesign for colleague.
+- Actions: wrote revised spec and 17-task implementation plan; linked future work from project and agent pages.
+- Validation: documentation consistency and local-link checks; application tests not rerun (no local virtualenv).
+- Decision: preserve existing code; deliver reliable ingestion, then RAG/widget, then minimal admin/release; full RBAC/Refine follows.
+- Follow-up: colleague executes task 0 first. No source code, migrations or runtime configuration changed.

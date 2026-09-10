@@ -107,6 +107,8 @@ docker compose up
 
 ## Roadmap & status
 
+> **Planning update (2026-09-10):** the [revised design](docs/superpowers/specs/2026-09-10-graft-redesign.md) and [implementation plan for the next contributor](docs/superpowers/plans/2026-09-10-graft-redesign-plan.md) supersede the future execution order below. No new functionality is implemented by this documentation update. Start with plan task 0.
+
 Built iteratively, one phase at a time; each phase has a plan in `docs/superpowers/plans/` and lands on `main` only after tests pass and review.
 
 | Phase | Scope | Status |

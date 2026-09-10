@@ -1,12 +1,23 @@
 ---
 title: Handoff — start here
 updated: 2026-09-10
-sources: [README.md, docs/superpowers/**]
-source_commit: 4826fc6
+sources: [README.md, docs/superpowers/**, docs/superpowers/specs/2026-09-10-graft-redesign.md, docs/superpowers/plans/2026-09-10-graft-redesign-plan.md]
+source_commit: c16dbae
 confidence: high
 ---
 
 # Handoff — start here
+
+## Baton For Next Coding Agent
+
+Read [the revised spec](../../docs/superpowers/specs/2026-09-10-graft-redesign.md) and [the detailed plan](../../docs/superpowers/plans/2026-09-10-graft-redesign-plan.md). Future-work instructions below this section are historical and superseded where they conflict. No application code was changed in this planning pass.
+
+| Order | Task | Start files | Done when | Verification command | Notes / blockers |
+|---|---|---|---|---|---|
+| 1 | Plan task 0: baseline and test separation | server/tests/conftest.py; new plan | Unit tests run without Docker; integration still uses migrations | From server: `uv run pytest tests/unit -q` after task 0 | Not verified; virtualenv absent during planning |
+| 2 | Plan tasks 1–6: reliable ingestion | new spec sections 4–6 | Gate A: authenticated upload survives worker restart | From server after implementation: `uv run pytest tests/integration -q` | Includes auth and source storage |
+| 3 | Plan tasks 7–11: RAG and widget | new plan | Gate B: widget demo and live evidence | Plan tasks 10–11 commands | Live credentials required |
+| 4 | Plan tasks 12–14: release | new plan | Gate C: admin, build and restore verified | Plan tasks 12–14 commands | Licence selection before public release |
 
 Welcome. This is the fastest path to being productive on Graft.
 

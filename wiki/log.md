@@ -18,3 +18,9 @@ confidence: high
 - Portable overview: overview-graft.md
 - Proposed for retirement: none (design spec + phase plans under docs/superpowers/ stay authoritative).
 - Follow-up: run /wiki-lint to verify coverage; update pages as Phase 3b lands.
+
+## [2026-09-10] sync | redesign planning
+- Added revised spec and execution plan under docs/superpowers.
+- Updated roadmap, status, decisions, context, handoff, overview-graft and activity.
+- Existing engineering pages retain current implementation facts.
+- work-tracker.md is absent; task checkboxes live in the detailed plan and the prioritized queue in handoff.

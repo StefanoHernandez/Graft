@@ -1,12 +1,16 @@
 ---
 title: Agent context
 updated: 2026-09-10
-sources: [docs/superpowers/**, server/graft/**]
-source_commit: 4826fc6
+sources: [docs/superpowers/**, server/graft/**, docs/superpowers/specs/2026-09-10-graft-redesign.md, docs/superpowers/plans/2026-09-10-graft-redesign-plan.md]
+source_commit: c16dbae
 confidence: high
 ---
 
 # Agent context
+
+## Read first for future work — 2026-09-10
+
+Read the [revised spec](../../docs/superpowers/specs/2026-09-10-graft-redesign.md) and [execution plan](../../docs/superpowers/plans/2026-09-10-graft-redesign-plan.md) before following the older phase queue below. These documents change future scope/order, not current code. First release keeps multi-bot but limits admin to one owner; RBAC and Refine follow later. Original files, provenance and worker recovery precede public chat. No runtime changes or new passing tests are claimed.
 
 Durable context for whoever (human or AI) works on Graft next.
 

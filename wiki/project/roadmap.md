@@ -1,12 +1,16 @@
 ---
 title: Roadmap
 updated: 2026-09-10
-sources: [docs/superpowers/specs/2026-09-08-graft-design.md, docs/superpowers/plans/*]
-source_commit: 4826fc6
+sources: [docs/superpowers/specs/2026-09-08-graft-design.md, docs/superpowers/plans/*, docs/superpowers/specs/2026-09-10-graft-redesign.md, docs/superpowers/plans/2026-09-10-graft-redesign-plan.md]
+source_commit: c16dbae
 confidence: high
 ---
 
 # Roadmap
+
+## Revised execution order — 2026-09-10
+
+The owner requested a redesign and implementation handoff. The [new spec](../../docs/superpowers/specs/2026-09-10-graft-redesign.md) and [17-task plan](../../docs/superpowers/plans/2026-09-10-graft-redesign-plan.md) now define future execution: reliable documents and owner auth → RAG/chat/widget and live evaluation → minimal admin and deploy → full RBAC/Refine. Tasks are planned, not implemented. The table below preserves the original roadmap for historical mapping; it no longer defines execution order.
 
 Graft is built one phase at a time. Each phase: a spec-derived bite-sized **TDD plan** in
 `docs/superpowers/plans/`, implemented test-first, reviewed, merged to `main` when green.

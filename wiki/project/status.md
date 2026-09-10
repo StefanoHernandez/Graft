@@ -1,12 +1,16 @@
 ---
 title: Project status
 updated: 2026-09-10
-sources: [docs/superpowers/plans/*, git log]
-source_commit: 4826fc6
+sources: [docs/superpowers/plans/*, git log, docs/superpowers/specs/2026-09-10-graft-redesign.md, docs/superpowers/plans/2026-09-10-graft-redesign-plan.md]
+source_commit: c16dbae
 confidence: high
 ---
 
 # Project status
+
+## Planning update — 2026-09-10
+
+Implementation remains at Phase 3a; documentation baseline is `c16dbae`. A [redesign plan](../../docs/superpowers/plans/2026-09-10-graft-redesign-plan.md) is ready for the colleague. Next: task 0, reproduce the baseline and separate unit/integration tests, then tasks 1–6. Test/lint success below is the earlier recorded result; it was not rerun during this planning pass because no local virtualenv was present.
 
 **As of 2026-09-10, commit `4826fc6` — end of Phase 3a.**
 
