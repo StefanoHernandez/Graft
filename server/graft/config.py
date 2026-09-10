@@ -1,4 +1,5 @@
 from functools import lru_cache
+from pathlib import Path
 
 from cryptography.fernet import Fernet
 from pydantic import model_validator
@@ -14,6 +15,9 @@ class Settings(BaseSettings):
     encryption_key: str = ""  # Fernet key (urlsafe base64, 32 bytes)
     cors_origins: list[str] = []
     app_env: str = "dev"
+    # Where uploaded originals live. App and worker must mount the same volume:
+    # the worker re-reads the original on every attempt.
+    storage_root: Path = Path("/data/uploads")
 
     @model_validator(mode="after")
     def _reject_placeholder_secrets_in_prod(self) -> "Settings":
