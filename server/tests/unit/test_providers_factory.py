@@ -74,8 +74,11 @@ def test_build_embedder_anthropic_rejected():
     from graft.providers.config import EmbeddingConfig
     from graft.providers.factory import build_embedder
 
-    with pytest.raises(ProviderError, match="embedding"):
+    # Anthropic has no embedding API: a misconfigured bot, not a transient outage.
+    with pytest.raises(ProviderError) as excinfo:
         build_embedder(EmbeddingConfig(provider="anthropic", model="whatever"))
+    assert excinfo.value.code == "provider_config"
+    assert excinfo.value.retryable is False
 
 
 def test_build_llm_anthropic():
@@ -152,3 +155,28 @@ def test_decrypt_failure_raises_provider_error():
         build_llm(LLMConfig(
             provider="openai_compatible", model="m",
             api_key="not-a-valid-fernet-token", api_key_encrypted=True))
+
+
+def test_factory_passes_timeout_and_retries_to_the_client():
+    from graft.providers.config import EmbeddingConfig
+    from graft.providers.factory import build_embedder
+
+    embedder = build_embedder(
+        EmbeddingConfig(provider="openai_compatible", model="m", api_key=None),
+        timeout=12.5,
+        max_retries=0,
+    )
+    client = embedder._client
+    assert client.max_retries == 0
+    assert client.timeout == 12.5
+
+
+def test_factory_defaults_leave_sdk_retries_on():
+    from graft.providers.config import EmbeddingConfig
+    from graft.providers.factory import DEFAULT_MAX_RETRIES, DEFAULT_TIMEOUT, build_embedder
+
+    client = build_embedder(
+        EmbeddingConfig(provider="openai_compatible", model="m", api_key=None)
+    )._client
+    assert client.max_retries == DEFAULT_MAX_RETRIES
+    assert client.timeout == DEFAULT_TIMEOUT

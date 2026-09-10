@@ -4,7 +4,7 @@ from collections.abc import AsyncIterator, Sequence
 
 from anthropic import AsyncAnthropic
 
-from .base import ChatMessage, ProviderConnectionError
+from .base import ChatMessage, provider_error
 
 _DEFAULT_MAX_TOKENS = 1024
 
@@ -39,13 +39,19 @@ class AnthropicLLM:
         }
         if system:
             kwargs["system"] = system
-        async with self._client.messages.stream(**kwargs) as stream:
-            async for text in stream.text_stream:
-                if text:
-                    yield text
+        try:
+            async with self._client.messages.stream(**kwargs) as stream:
+                async for text in stream.text_stream:
+                    if text:
+                        yield text
+        except Exception as exc:
+            raise provider_error(exc) from exc
 
     async def test_connection(self) -> None:
         try:
             await self._client.models.list()
         except Exception as exc:
-            raise ProviderConnectionError(str(exc)) from exc
+            raise provider_error(exc, connection=True) from exc
+
+    async def aclose(self) -> None:
+        await self._client.close()
