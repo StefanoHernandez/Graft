@@ -16,6 +16,7 @@ dependencies = [
     "openai>=1.40,<4",
     "anthropic>=0.40",
     "cryptography>=43",
+    "python-multipart>=0.0.9",
 ]
 
 [dependency-groups]

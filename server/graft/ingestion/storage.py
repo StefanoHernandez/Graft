@@ -65,3 +65,9 @@ def delete_source(root: Path, storage_key: str) -> None:
     parent = target.parent
     if parent != Path(root).resolve() and parent.exists():
         shutil.rmtree(parent, ignore_errors=True)
+
+
+def delete_bot_sources(root: Path, bot_id: uuid.UUID | str) -> None:
+    """Remove every original of a bot, after its rows are already gone."""
+    target = _resolved(root, str(bot_id))
+    shutil.rmtree(target, ignore_errors=True)

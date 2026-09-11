@@ -1,8 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .api import health
+from .api import admin, health
 from .config import get_settings
+from .security.auth import auth_backend, fastapi_users
 
 
 def create_app() -> FastAPI:
@@ -15,6 +16,12 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     app.include_router(health.router)
+    # Login only: accounts come from `python -m graft.cli create-admin`, never
+    # from a public registration route.
+    app.include_router(
+        fastapi_users.get_auth_router(auth_backend), prefix="/auth/jwt", tags=["auth"]
+    )
+    app.include_router(admin.router)
     return app
 
 

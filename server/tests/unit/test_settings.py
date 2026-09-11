@@ -7,7 +7,8 @@ from graft.config import Settings
 VALID_KEY = Fernet.generate_key().decode()
 
 
-def test_dev_defaults_are_usable_without_secrets():
+def test_dev_defaults_are_usable_without_secrets(monkeypatch):
+    monkeypatch.delenv("JWT_SECRET", raising=False)
     settings = Settings(app_env="dev", _env_file=None)
     assert settings.app_env == "dev"
     assert settings.jwt_secret == "change-me"

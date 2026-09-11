@@ -1,12 +1,16 @@
 import os
 import pathlib
+import secrets
 
 import pytest
 import pytest_asyncio
 from alembic import command
 from alembic.config import Config
+from cryptography.fernet import Fernet
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
 from testcontainers.community.postgres import PostgresContainer
 
 from graft.db import get_session
@@ -34,8 +38,11 @@ def pg():
 
 
 @pytest.fixture(scope="session", autouse=True)
-def migrated(pg):
+def migrated(pg, tmp_path_factory):
     os.environ["DATABASE_URL"] = pg.async_url
+    os.environ["STORAGE_ROOT"] = str(tmp_path_factory.mktemp("uploads"))
+    os.environ.setdefault("ENCRYPTION_KEY", Fernet.generate_key().decode())
+    os.environ.setdefault("JWT_SECRET", secrets.token_urlsafe(32))
     from graft.config import get_settings
     get_settings.cache_clear()
     cfg = Config("alembic.ini")
@@ -43,6 +50,26 @@ def migrated(pg):
     cfg.set_main_option("sqlalchemy.url", pg.sync_url)
     command.upgrade(cfg, "head")
     yield
+
+
+@pytest.fixture(scope="session")
+def cleanup_engine(pg):
+    """One engine for teardown, so truncating does not cost a connection pool per test."""
+    return create_async_engine(pg.async_url, poolclass=NullPool)
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def clean_tables(migrated, cleanup_engine):
+    """Every integration test starts from empty tables.
+
+    The container is session-scoped, so without this a test silently depends on
+    what ran before it — which is how a suite starts failing only in one order.
+    """
+    yield
+    async with cleanup_engine.begin() as conn:
+        await conn.execute(
+            text('TRUNCATE bots, documents, chunks, conversations, messages, "user" CASCADE')
+        )
 
 
 @pytest_asyncio.fixture
