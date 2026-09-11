@@ -2,7 +2,7 @@
 title: Retrieval and RAG
 updated: 2026-09-11
 sources: [server/graft/rag/*.py, server/tests/integration/test_retrieval.py, server/tests/fixtures/rag/*]
-source_commit: ed5db22
+source_commit: 47e3204
 confidence: high
 ---
 
@@ -39,6 +39,42 @@ query vector is bound with the typed `Vector()` bind, never interpolated into SQ
 or all zeros is refused: it has no direction, so the distance means nothing.
 `min_score` is the abstention line — the default 0.5 is a starting point that has to be
 calibrated against a real corpus, not trusted.
+
+## Prompt (`rag.prompt.build_messages`)
+
+Three things are kept apart: the product's rules, the conversation so far, and the
+retrieved documents. Documents are quoted inside `<<<DOCUMENTS … DOCUMENTS>>>` and
+announced as untrusted data, because a document is written by whoever uploaded it.
+
+The bot's own `system_prompt` is included between the rules and a restatement of them,
+so a prompt that says "ignore the documents" is contradicted after it is read. It can
+set tone, scope or persona; it cannot delete rule 1 or the abstention.
+
+Each source is labelled `[S1]`, `[S2]`… with its filename, page and heading, so a
+citation resolves to something a visitor can check.
+
+## Service (`rag.service.answer_question`)
+
+Yields `delta` events, then exactly one `done` **or** one `error`.
+
+- **No context, no call.** If nothing clears `min_score`, the answer is the fixed
+  abstention, produced without spending a request on a model with nothing to work from
+  (`grounding: "no_context"`).
+- Sources are trimmed to the **context budget before labels are assigned**, so a label
+  can never point at text the model was not shown.
+- After the stream, every `[Sn]` is checked against the retrieved set. An invented label,
+  or an ordinary answer that cites nothing, ends the exchange with
+  `error: invalid_citation` and **no** `done` — the text was already streamed, so this
+  cannot make a wrong answer right; what it refuses is to *deliver* it as a verified one.
+  An answer that is exactly the abstention is valid with zero citations.
+- The check proves a label exists, **not** that the sentence follows from it. Entailment
+  is not something this can demonstrate, and the product must not claim it does.
+- `done.citations` carries only the sources actually cited, each with an excerpt: a source
+  the visitor cannot read is not a source. It also means an admin must upload only
+  material meant for visitors.
+- A provider failure becomes one `error` with the stable code and no `done`. Closing the
+  stream closes the provider generation, so a visitor who leaves does not leave a
+  generation running.
 
 ## Evaluation corpus (`tests/fixtures/rag/`)
 
