@@ -77,7 +77,8 @@ as tasks — see [roadmap](../project/roadmap.md).
 |---|---|---|
 | `graft.models` | SQLAlchemy models + one shared `Base` | [data-model](data-model.md) |
 | `graft.providers` | LLM/embeddings Protocols, adapters, factory | [providers](providers.md) |
-| `graft.ingestion` | parse → chunk → embed → store | [ingestion](ingestion.md) |
+| `graft.ingestion` | parse → chunk → embed → store, worker | [ingestion](ingestion.md) |
+| `graft.rag` | exact KNN retrieval over one vector space | [rag](rag.md) |
 | `graft.security` | Fernet encryption, JWT auth, owner guard | (this page) |
 | `graft.api` | HTTP routers: health, admin | (this page) |
 | `graft.cli` | operator commands (`create-admin`) | (this page) |

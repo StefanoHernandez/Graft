@@ -22,7 +22,8 @@ Engineering-first documentation for **Graft**. New here? Start with
 - [architecture.md](engineering/architecture.md) — components, runtime, deployment
 - [data-model.md](engineering/data-model.md) — tables, migrations, vector storage
 - [providers.md](engineering/providers.md) — LLM/embeddings Protocols, adapters, factory
-- [ingestion.md](engineering/ingestion.md) — parse → chunk → embed → store
+- [ingestion.md](engineering/ingestion.md) — parse → chunk → embed → store, worker
+- [rag.md](engineering/rag.md) — retrieval filters and the evaluation corpus
 - [development.md](engineering/development.md) — setup, commands, conventions
 - [testing.md](engineering/testing.md) — test suite + fixtures
 - [operations.md](engineering/operations.md) — running, config, migrations, gaps
