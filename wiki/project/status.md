@@ -2,23 +2,24 @@
 title: Project status
 updated: 2026-09-11
 sources: [docs/superpowers/plans/2026-09-10-graft-redesign-plan.md, git log]
-source_commit: f9da461
+source_commit: 09b4e57
 confidence: high
 ---
 
 # Project status
 
-**As of 2026-09-11, branch `feat/graft-redesign-a` — increment A complete (tasks 0–6).**
+**As of 2026-09-11, branch `feat/graft-redesign-a` — increments A and B complete (tasks 0–11).**
 
 The [redesign plan](../../docs/superpowers/plans/2026-09-10-graft-redesign-plan.md)
 replaces the old phase numbering with tasks in three gated increments. Phases 1–3a are
 kept; tasks 0–4 corrected them.
 
-- 192 tests (152 unit with **no Docker**, 40 integration against a real Postgres and a
-  real Redis), 0 warnings, ruff clean.
-- A document can be uploaded through an authenticated admin API, is stored durably, and
-  is ingested by a background worker with leases, fencing and bounded retries.
-- Still no user-facing surface: retrieval, chat, widget and admin UI are increment B/C.
+- 301 backend tests (unit tier runs with **no Docker**) plus 17 widget tests, 0 warnings,
+  ruff and tsc clean. 6 live tests are deselected unless a provider key is present.
+- **End to end works:** upload → durable storage → background ingestion → grounded answer
+  with checkable citations, delivered to a widget on a page Graft does not serve.
+- Missing for a first release: the admin UI (task 12), reproducible deploy and restore
+  (13), CI and docs (14).
 
 ## Done — increment A
 
@@ -31,6 +32,22 @@ kept; tasks 0–4 corrected them.
 | 4 | Short transactions, claim/heartbeat/fencing, batched embeddings |
 | 5 | Owner login (no registration route), admin API for bots and documents |
 | 6 | arq worker, per-minute dispatcher, worker service in compose |
+
+## Gate B — evidence (2026-09-11)
+
+First live evaluation, `mistral-embed` + `ministral-8b-latest`, 21 questions × 3 passes:
+**6/6 absent questions refused every pass**, **8/8 answerable cited the right document
+every pass**, **0 citations pointing at nothing**, 0 errors. The planted prompt injection
+was reported as content, never obeyed; all three conflicting cases cited both sides.
+Median first token 0.92s.
+
+The calibration finding matters as much as the score: with `mistral-embed` every question
+scores above 0.70, so `min_score=0.5` never triggers an abstention — every refusal came
+from the model obeying the grounded prompt. Full write-up, including what this does *not*
+show, in [docs/evidence/rag-baseline.md](../../docs/evidence/rag-baseline.md).
+
+The widget was verified on a page served from another origin: an answer with an expandable
+source reading `S1 · installation.md · Requirements` (providers stubbed for that run).
 
 ## Gate A — evidence
 
@@ -45,10 +62,19 @@ by a unit test.
 covered by integration tests with a fake embedder against real infrastructure; the live
 evidence is task 11.
 
-## Next — increment B
+## Done — increment B
 
-Tasks 7–11: exact KNN retrieval filtered by fingerprint, grounded RAG with validated
-citations, the public SSE chat endpoint with per-bot origins and rate limits, the widget,
-and the live RAG evaluation that produces the first real quality evidence.
+| Task | What landed |
+|---|---|
+| 7 | Exact KNN retrieval scoped by fingerprint; 21-case evaluation corpus |
+| 8 | Grounded prompt and answer service with validated citations |
+| 9 | Public SSE chat: per-bot origins, Lua rate limits, attempt persistence |
+| 10 | Embeddable widget — one script tag, Shadow DOM, no runtime dependencies |
+| 11 | Live evaluation script, opt-in live tests, first real baseline |
+
+## Next — increment C
+
+Tasks 12–14: the minimal admin UI, reproducible deploy with backup and restore, then CI
+and the release documentation.
 
 See [roadmap](roadmap.md).
