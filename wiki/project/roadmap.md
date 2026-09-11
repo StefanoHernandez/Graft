@@ -1,6 +1,6 @@
 ---
 title: Roadmap
-updated: 2026-09-10
+updated: 2026-09-11
 sources: [docs/superpowers/specs/2026-09-08-graft-design.md, docs/superpowers/plans/*, docs/superpowers/specs/2026-09-10-graft-redesign.md, docs/superpowers/plans/2026-09-10-graft-redesign-plan.md]
 source_commit: c16dbae
 confidence: high
@@ -14,6 +14,14 @@ The owner requested a redesign and implementation handoff. The [new spec](../../
 
 Graft is built one phase at a time. Each phase: a spec-derived bite-sized **TDD plan** in
 `docs/superpowers/plans/`, implemented test-first, reviewed, merged to `main` when green.
+
+> **Superseded for future work.** The
+> [redesign plan](../../docs/superpowers/plans/2026-09-10-graft-redesign-plan.md) of
+> 2026-09-10 replaces the ordering below with tasks 0–16 in gated increments; the table
+> is kept because it is how phases 1–3a were actually built.
+> Mapping: 3b → tasks 2–6 · 4 → tasks 7–9, 11 · 5 → task 5 (auth) and 15 (RBAC) ·
+> 6 → tasks 5 and 12 · 7 → task 16 · 8 → task 10 (moved earlier).
+> Increment A (tasks 0–6) is complete — see [status](status.md).
 
 | Phase | Scope | Status | Plan |
 |---|---|---|---|

@@ -1,48 +1,54 @@
 ---
 title: Project status
-updated: 2026-09-10
-sources: [docs/superpowers/plans/*, git log, docs/superpowers/specs/2026-09-10-graft-redesign.md, docs/superpowers/plans/2026-09-10-graft-redesign-plan.md]
-source_commit: c16dbae
+updated: 2026-09-11
+sources: [docs/superpowers/plans/2026-09-10-graft-redesign-plan.md, git log]
+source_commit: f9da461
 confidence: high
 ---
 
 # Project status
 
-## Planning update — 2026-09-10
+**As of 2026-09-11, branch `feat/graft-redesign-a` — increment A complete (tasks 0–6).**
 
-Implementation remains at Phase 3a; documentation baseline is `c16dbae`. A [redesign plan](../../docs/superpowers/plans/2026-09-10-graft-redesign-plan.md) is ready for the colleague. Next: task 0, reproduce the baseline and separate unit/integration tests, then tasks 1–6. Test/lint success below is the earlier recorded result; it was not rerun during this planning pass because no local virtualenv was present.
+The [redesign plan](../../docs/superpowers/plans/2026-09-10-graft-redesign-plan.md)
+replaces the old phase numbering with tasks in three gated increments. Phases 1–3a are
+kept; tasks 0–4 corrected them.
 
-**As of 2026-09-10, commit `4826fc6` — end of Phase 3a.**
+- 192 tests (152 unit with **no Docker**, 40 integration against a real Postgres and a
+  real Redis), 0 warnings, ruff clean.
+- A document can be uploaded through an authenticated admin API, is stored durably, and
+  is ingested by a background worker with leases, fencing and bounded retries.
+- Still no user-facing surface: retrieval, chat, widget and admin UI are increment B/C.
 
-- Backend foundation, provider layer (6 backends), and the synchronous ingestion
-  pipeline are implemented, tested (46 tests, testcontainers Postgres), lint-clean, and
-  merged to `main`.
-- No user-facing surface yet: the Chat API, admin dashboard, and browser widget are
-  future phases.
+## Done — increment A
 
-## Done
+| Task | What landed |
+|---|---|
+| 0 | Unit/integration split; unit tier runs with Docker down (~1s) |
+| 1 | Coded, non-leaking provider errors; embedding batch validation; prod config guards |
+| 2 | Migration `0003`, durable originals, embedding fingerprint |
+| 3 | Provenance-carrying parser, paragraph chunking, parser in a killable subprocess |
+| 4 | Short transactions, claim/heartbeat/fencing, batched embeddings |
+| 5 | Owner login (no registration route), admin API for bots and documents |
+| 6 | arq worker, per-minute dispatcher, worker service in compose |
 
-- **Phase 1 — Foundation:** FastAPI app + health/readiness, config, async DB, Alembic core
-  schema (`0001`), Fernet crypto, docker-compose (app + pgvector + redis).
-- **Phase 2a — Provider abstraction:** Protocols, config, OpenAI-compatible adapter, factory.
-- **Phase 2b — Providers:** native Anthropic; Google & Mistral via OpenAI-compat; factory
-  branches; decrypt-failure handling; OpenAI-adapter hardening.
-- **Phase 3a — Ingestion pipeline:** `chunks` table (`0002`), parsing (pdf/md/txt),
-  chunking, `ingest_document`.
+## Gate A — evidence
 
-## Next
+Run on `docker compose up` (2026-09-11) with embeddings pointed at an unreachable
+endpoint: upload committed `pending` and enqueued immediately, the worker claimed it,
+retried after 10s and 30s, and the sweep ended it `failed / attempts_exhausted` with
+nothing left in `processing`. The run found a real bug — `WorkerSettings.redis_settings`
+as a method killed the worker at boot while the app stayed healthy — now fixed and guarded
+by a unit test.
 
-- **Phase 3b — Async ingestion:** Redis queue + background worker.
+**Not yet verified:** the `ready` path against a **live** embedding provider. It is
+covered by integration tests with a fake embedder against real infrastructure; the live
+evidence is task 11.
 
-## Not started
+## Next — increment B
 
-Phase 4 (RAG + Chat API), 5 (auth + RBAC), 6 (Admin API), 7 (Admin SPA), 8 (widget).
+Tasks 7–11: exact KNN retrieval filtered by fingerprint, grounded RAG with validated
+citations, the public SSE chat endpoint with per-bot origins and rate limits, the widget,
+and the live RAG evaluation that produces the first real quality evidence.
 
-## Health
-
-- Tests: green, pristine. Lint: clean.
-- Open carry-forward items tracked in [decisions](decisions.md) and the engineering pages
-  (notably: normalize provider stream errors before Phase 4; live smoke-test Google/Mistral;
-  batch embeds for large docs).
-
-See [roadmap](roadmap.md) for the full plan.
+See [roadmap](roadmap.md).
