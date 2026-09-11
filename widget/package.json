@@ -1,0 +1,21 @@
+{
+  "name": "graft-widget",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Embeddable Graft chat widget: one script tag, Shadow DOM, no runtime dependencies.",
+  "type": "module",
+  "scripts": {
+    "build": "esbuild src/index.ts --bundle --format=iife --target=es2019 --minify --outfile=dist/graft.js",
+    "typecheck": "tsc --noEmit",
+    "pretest": "esbuild tests/*.test.ts --bundle --format=esm --platform=node --outdir=.test-build",
+    "test": "node --test \".test-build/*.test.js\""
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "@types/node": "22.10.2",
+    "esbuild": "0.25.10",
+    "typescript": "5.9.3"
+  }
+}

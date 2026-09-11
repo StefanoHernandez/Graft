@@ -1,0 +1,181 @@
+# Every job here runs without a single credential. The one that needs a provider
+# key is manual and lives behind a protected environment, so a fork's pull
+# request can never spend the owner's quota.
+name: checks
+
+# Runs on every push, so a branch gets its checks without needing a pull
+# request. `pull_request` is kept only for forks, which have no push access;
+# each job skips it otherwise, so a same-repo PR does not run everything twice.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  UV_VERSION: "0.12.13"
+
+jobs:
+  backend-unit:
+    name: backend · unit + lint
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+      - run: uv sync --locked
+      - run: uv run ruff check .
+      - name: unit tests, with the Docker daemon deliberately unreachable
+        # The unit tier must never quietly acquire a dependency on Docker: point
+        # it at a socket that does not exist and let it prove that.
+        env:
+          DOCKER_HOST: unix:///nonexistent-graft.sock
+        run: uv run pytest tests/unit -q
+
+  backend-integration:
+    name: backend · integration
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+      - run: uv sync --locked
+      # testcontainers starts its own Postgres and Redis on the runner's Docker.
+      - run: uv run pytest -m integration -q
+
+  migrations:
+    name: backend · migrations match the models
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    services:
+      db:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: graft
+          POSTGRES_PASSWORD: graft
+          POSTGRES_DB: graft
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U graft"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql+asyncpg://graft:graft@localhost:5432/graft
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+      - run: uv sync --locked
+      - run: uv run alembic upgrade head
+      - name: no drift between the models and the migrations
+        # A model changed without a migration is a deploy that half-works.
+        run: uv run alembic check
+
+  widget:
+    name: widget · types, tests, bundle
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: widget
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.12.0"
+          cache: npm
+          cache-dependency-path: widget/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - name: the bundle stays small enough to be one script tag
+        run: |
+          size=$(wc -c < dist/graft.js)
+          echo "dist/graft.js is ${size} bytes"
+          test "$size" -lt 25000
+
+  deploy:
+    name: deploy · compose builds
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: a throwaway .env, so compose can resolve
+        run: |
+          cp .env.example .env
+          python3 - <<'PY'
+          import base64, os, pathlib, secrets
+          key = base64.urlsafe_b64encode(os.urandom(32)).decode()
+          path = pathlib.Path(".env")
+          path.write_text(
+              path.read_text()
+              .replace("replace-with-a-fernet-key", key)
+              .replace("replace-with-a-long-random-string", secrets.token_urlsafe(32))
+          )
+          PY
+      - run: docker compose config --quiet
+      - run: docker compose -f docker-compose.yml -f docker-compose.dev.yml config --quiet
+      - name: build both images
+        run: docker compose build
+
+  live:
+    name: live · provider evaluation (manual)
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    # A protected environment: the key is never reachable from a pull request.
+    environment: live
+    defaults:
+      run:
+        working-directory: server
+    services:
+      db:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: graft
+          POSTGRES_PASSWORD: graft
+          POSTGRES_DB: graft
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U graft"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql+asyncpg://graft:graft@localhost:5432/graft
+      STORAGE_ROOT: /tmp/graft-uploads
+      MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+      - run: uv sync --locked
+      - run: mkdir -p /tmp/graft-uploads
+      - run: uv run alembic upgrade head
+      - name: evaluate against a real provider
+        run: uv run pytest -m live tests/live -q

@@ -1,16 +1,30 @@
 ---
 title: Agent context
-updated: 2026-09-10
+updated: 2026-09-11
 sources: [docs/superpowers/**, server/graft/**, docs/superpowers/specs/2026-09-10-graft-redesign.md, docs/superpowers/plans/2026-09-10-graft-redesign-plan.md]
-source_commit: c16dbae
+source_commit: 5239138
 confidence: high
 ---
 
 # Agent context
 
-## Read first for future work — 2026-09-10
+## Read first — 2026-09-11
 
-Read the [revised spec](../../docs/superpowers/specs/2026-09-10-graft-redesign.md) and [execution plan](../../docs/superpowers/plans/2026-09-10-graft-redesign-plan.md) before following the older phase queue below. These documents change future scope/order, not current code. First release keeps multi-bot but limits admin to one owner; RBAC and Refine follow later. Original files, provenance and worker recovery precede public chat. No runtime changes or new passing tests are claimed.
+Tasks 0–14 of the [execution plan](../../docs/superpowers/plans/2026-09-10-graft-redesign-plan.md)
+are implemented; the [revised spec](../../docs/superpowers/specs/2026-09-10-graft-redesign.md)
+is the scope of record and the phase queue further down this page is history.
+
+Decisions that constrain new work, each of them load-bearing:
+
+- **Retrieval filters on the embedding fingerprint, never on dimension.** Two vectors of
+  the same length from different models are not comparable.
+- **The run id in the database is the fencing token**, not the queue. arq is at-least-once,
+  so a duplicated job, a resumed worker or a stale attempt must not publish over fresher work.
+- **Nothing is answered without a retrieved chunk.** No context means a fixed refusal and
+  no model call, and a citation pointing at a chunk nobody retrieved is discarded.
+- **The admin token lives in memory only**; the visitor's session id never leaves the server.
+- **One owner** in this release. Editor and viewer exist in the schema and are refused by
+  the API, because shipping an unenforced permission is worse than not having one.
 
 Durable context for whoever (human or AI) works on Graft next.
 

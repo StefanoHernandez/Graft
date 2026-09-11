@@ -4,7 +4,7 @@ from collections.abc import AsyncIterator, Sequence
 
 from openai import AsyncOpenAI
 
-from .base import ChatMessage, ProviderConnectionError
+from .base import ChatMessage, provider_error, validate_vectors
 
 
 class OpenAICompatibleLLM:
@@ -29,19 +29,28 @@ class OpenAICompatibleLLM:
         }
         if max_tokens is not None:
             kwargs["max_tokens"] = max_tokens
-        stream = await self._client.chat.completions.create(**kwargs)
-        async for chunk in stream:
-            if not chunk.choices:
-                continue
-            delta = chunk.choices[0].delta.content
-            if delta:
-                yield delta
+        # The try spans the whole stream: a provider can fail on the first call or
+        # halfway through the tokens. CancelledError/GeneratorExit are BaseException,
+        # so a disconnected visitor still cancels instead of looking like an outage.
+        try:
+            stream = await self._client.chat.completions.create(**kwargs)
+            async for chunk in stream:
+                if not chunk.choices:
+                    continue
+                delta = chunk.choices[0].delta.content
+                if delta:
+                    yield delta
+        except Exception as exc:
+            raise provider_error(exc) from exc
 
     async def test_connection(self) -> None:
         try:
             await self._client.models.list()
         except Exception as exc:
-            raise ProviderConnectionError(str(exc)) from exc
+            raise provider_error(exc, connection=True) from exc
+
+    async def aclose(self) -> None:
+        await self._client.close()
 
 
 class OpenAICompatibleEmbedder:
@@ -51,12 +60,20 @@ class OpenAICompatibleEmbedder:
         self._client = client
 
     async def embed(self, texts: Sequence[str], *, model: str) -> list[list[float]]:
-        resp = await self._client.embeddings.create(model=model, input=list(texts))
+        try:
+            resp = await self._client.embeddings.create(model=model, input=list(texts))
+        except Exception as exc:
+            raise provider_error(exc) from exc
         ordered = sorted(resp.data, key=lambda item: getattr(item, "index", 0))
-        return [item.embedding for item in ordered]
+        vectors = [list(item.embedding) for item in ordered]
+        validate_vectors(vectors, expected=len(texts))
+        return vectors
 
     async def test_connection(self) -> None:
         try:
             await self._client.models.list()
         except Exception as exc:
-            raise ProviderConnectionError(str(exc)) from exc
+            raise provider_error(exc, connection=True) from exc
+
+    async def aclose(self) -> None:
+        await self._client.close()

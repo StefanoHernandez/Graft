@@ -1,138 +1,200 @@
 # Graft
 
-**Self-hosted, open-source framework to add an LLM chatbot with RAG to any existing website — with one line of HTML and zero changes to the host site's backend.**
+**Self-hosted chatbot that answers only from your own documents, cites which one it used,
+and says it does not know rather than inventing an answer. One `<script>` tag on the host
+page; no changes to the host site's backend.**
 
-A site owner drops a single `<script>` tag into their page; it injects a chat widget isolated in a **Shadow DOM** (so it never clashes with the host site's CSS/JS, whatever the stack — Angular, Spring, Node, WordPress, static HTML). The widget talks directly to a self-hosted **Graft server** (a Docker service) that answers **strictly from documents the site owner uploaded**, citing its sources.
+A site owner uploads documents, copies one script tag into their page, and gets a chat
+widget isolated in a **Shadow DOM** (so it never clashes with the host site's CSS or JS,
+whatever the stack). The widget talks to a **Graft server** the owner runs, which answers
+strictly from the uploaded documents and validates every citation before delivering an
+answer.
 
-> Status: **early development.** The backend foundation, the multi-provider LLM/embeddings layer, and the document-ingestion pipeline are built and tested. The RAG chat endpoint, auth, admin dashboard, and the browser widget are **not yet implemented** — see [Roadmap & status](#roadmap--status).
+> **Status: working end to end, not yet a release.** A document can be uploaded through
+> the admin, ingested by a background worker, and answered on a real page with a
+> checkable source. What remains for a first release is CI, the release documentation,
+> and the RBAC/dashboard milestone. See [Status](#status).
 
 ## Why Graft
 
-- **One-line install, no backend changes.** The only integration point on the host site is one `<script>` tag. All logic lives in the self-hosted Graft server.
-- **Stack-agnostic.** Shadow DOM isolation means the widget works on any site that serves HTML.
-- **Own your data.** Self-hosted; bring your own LLM (cloud API key or a local model). Uploaded documents and provider keys stay on your infrastructure.
-- **Grounded answers.** Strict RAG: the bot answers only from retrieved chunks and says "I don't know" otherwise.
-- **Multi-bot, multi-provider.** One instance serves many bots; each bot picks its own LLM/embeddings backend among OpenAI, Ollama, LM Studio, Anthropic, Google/Gemini, Mistral.
+- **One-line integration.** The only thing the host site changes is one `<script>` tag.
+- **Stack-agnostic.** Shadow DOM isolation means the widget works on any site that serves
+  HTML, and the host page's CSS cannot reach into it.
+- **Own your data.** Postgres, Redis, the original files and the provider keys all live in
+  your own `docker compose`. The only outbound traffic is to the LLM and embedding
+  provider you configured.
+- **Refusal is a feature.** With nothing retrieved above the similarity threshold the
+  answer is a fixed refusal and **no model call is made at all**. Every claim carries a
+  label, and a label pointing at a chunk nobody retrieved is discarded rather than
+  delivered.
+- **Multi-bot, multi-provider.** One instance serves many bots; each bot picks its own
+  chat and embedding backend among OpenAI-compatible endpoints (including Ollama and
+  LM Studio), Anthropic, Google and Mistral.
+
+## What "one line" does and does not cover
+
+The script tag is the **frontend integration**, and that part really is one line. It is
+not the whole deployment. Running Graft still means running a server, which means:
+
+- **TLS and a reverse proxy.** The compose file publishes plain HTTP on port 8000. Put a
+  proxy in front of it, terminate TLS there, and do not expose port 8000 directly.
+- **SSE buffering must be off.** The chat endpoint streams. The app sends
+  `X-Accel-Buffering: no` and `Cache-Control: no-cache`; with nginx also set
+  `proxy_buffering off;` on that location, or every answer arrives at once at the end.
+- **CSP on the host page.** If the host site sends a Content-Security-Policy it must allow
+  the widget: `script-src https://your-graft-host` to load `graft.js`, and
+  `connect-src https://your-graft-host` for the chat request. The widget injects its own
+  styles into its shadow root, so `style-src 'unsafe-inline'` is needed unless you add a
+  nonce.
+- **Per-bot origins.** Each bot lists the exact origins its widget may run on. CORS is a
+  browser rule and not authentication — anything outside a browser can send any `Origin`
+  header — so it limits which *pages* spend a bot's quota, nothing more.
 
 ## Architecture at a glance
 
 ```
 Host site (any stack, backend UNCHANGED)
-  <script src=".../widget/graft.js" data-graft-bot="KEY"></script>   [widget: not built yet]
-        │  HTTP / SSE   (CORS via per-bot allowed_origins)
+  <script src=".../widget/graft.js" data-graft-bot="KEY"></script>
+        │  HTTP / SSE   (per-bot allowed_origins)
         ▼
-  graft-server  (FastAPI, Docker)
-   • Chat API (public, SSE)          [Phase 4 — not built]
-   • Admin API + SPA (Refine, JWT)   [Phase 6/7 — not built]
-   • Ingestion pipeline  ✅ built
-   • RAG engine                       [Phase 4 — not built]
-   • Provider adapters  ✅ built  (OpenAI-compat | Anthropic | Google | Mistral)
-        │
-        ▼
-  Postgres + pgvector   ✅        Redis   (rate limit + ingestion queue) [worker: Phase 3b]
+  app  (FastAPI)
+   • Chat API (public, SSE, rate-limited)
+   • Admin API + admin surface at /admin/
+   • RAG: exact KNN → grounded prompt → validated citations
+   • Provider adapters (OpenAI-compat | Anthropic | Google | Mistral)
+        │                                    ▲
+        ▼                                    │ same image, no migrations
+  Postgres + pgvector     Redis  ◄────────  worker  (arq: ingestion + sweep)
+                                             │
+                                   shared volume: the original files
 ```
 
-Full design: [docs/superpowers/specs/2026-09-08-graft-design.md](docs/superpowers/specs/2026-09-08-graft-design.md).
+Design: [the redesign spec](docs/superpowers/specs/2026-09-10-graft-redesign.md) supersedes
+the [original design](docs/superpowers/specs/2026-09-08-graft-design.md) for scope and
+order. Engineering detail lives in the [wiki](wiki/index.md).
 
 ## Tech stack
 
 | Area | Choice |
 |---|---|
 | Backend | Python 3.12, **FastAPI**, uvicorn |
-| Data + vectors | **Postgres + pgvector** (single engine; dimensionless `vector` column, exact KNN) |
-| ORM / migrations | SQLAlchemy 2 (async, `asyncpg`) + **Alembic** (sync `psycopg`) |
-| LLM/embeddings | pluggable adapters — `openai` (OpenAI/Ollama/LM Studio), `anthropic`; Google & Mistral via their OpenAI-compatible endpoints |
-| Doc parsing | `pypdf` (PDF), plain Markdown/text |
-| Secrets | `cryptography` Fernet (provider keys encrypted at rest) |
-| Queue | Redis (worker in Phase 3b) |
-| Tooling | **uv** (deps/venv), **ruff** (lint), **pytest** + **testcontainers** |
-| Deploy | `docker compose` (app + pgvector + redis) |
-
-## Repository layout
-
-```
-server/                     # the Python backend (package `graft`)
-  graft/
-    main.py  config.py  db.py        # app factory, settings, async DB
-    api/health.py                    # /health, /health/ready
-    security/crypto.py               # Fernet encrypt/decrypt for provider keys
-    models/                          # SQLAlchemy models (see wiki/engineering/data-model.md)
-    providers/                       # LLM/embeddings abstraction + adapters + factory
-    ingestion/                       # parse → chunk → embed → store pipeline
-  migrations/                        # Alembic (0001 core schema, 0002 chunks)
-  tests/                             # pytest suite (testcontainers Postgres)
-  Dockerfile  entrypoint.sh  pyproject.toml
-docker-compose.yml                   # app + db(pgvector) + redis
-docs/superpowers/specs/              # the design spec (source of truth)
-docs/superpowers/plans/              # per-phase implementation plans (TDD, bite-sized)
-wiki/                                # engineering-first project wiki — START HERE to onboard
-```
+| Data + vectors | **Postgres + pgvector** (one engine; dimensionless `vector`, exact KNN) |
+| ORM / migrations | SQLAlchemy 2 (async `asyncpg`) + **Alembic** (sync `psycopg`) |
+| Queue / limits | **Redis** + **arq** (ingestion jobs, per-minute sweep, chat rate limits) |
+| LLM / embeddings | pluggable adapters — `openai` (OpenAI/Ollama/LM Studio), `anthropic`; Google and Mistral via their OpenAI-compatible endpoints |
+| Doc parsing | `pypdf` (PDF with a text layer), Markdown, plain text |
+| Auth | FastAPI Users, JWT bearer; the account is created from the CLI |
+| Secrets | `cryptography` Fernet — provider keys encrypted at rest, never returned by the API |
+| Widget | TypeScript, bundled by esbuild into one ~7 kB file, **no runtime dependencies** |
+| Admin | server-rendered HTML/CSS/JS at `/admin/`, no framework |
+| Tooling | **uv**, **ruff**, **pytest** + **testcontainers**, `node --test` for the widget |
+| Deploy | `docker compose` (app + worker + pgvector + redis) |
 
 ## Getting started
 
-Prerequisites: **Python ≥ 3.12**, **[uv](https://docs.astral.sh/uv/)**, **Docker** (running — the test suite spins a real Postgres via testcontainers).
+Prerequisites: **Docker**. For development also **Python ≥ 3.12**, **[uv](https://docs.astral.sh/uv/)**
+and **Node ≥ 22** (the widget build: its test runner uses glob patterns, which Node 20 does not support).
 
-### Run the tests (fastest way to confirm your setup)
-
-```bash
-cd server
-uv run pytest -v
-```
-
-`uv run` auto-syncs the virtualenv from `pyproject.toml`. The suite starts an ephemeral `pgvector/pgvector:pg16` container, applies the Alembic migrations, and exercises the models, providers, and ingestion pipeline. It must be green and warning-free.
-
-### Run the stack with Docker
+### Run the stack
 
 ```bash
 cp .env.example .env
-# generate a Fernet key and put it in .env as ENCRYPTION_KEY:
+# put a real Fernet key in .env as ENCRYPTION_KEY:
 python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-docker compose up
+docker compose up -d
+
+# create the operator account (asks for the password, no echo)
+docker compose exec app /app/.venv/bin/python -m graft.cli create-admin you@example.com
 ```
 
-`app` runs `alembic upgrade head` then serves on **http://localhost:8000**. Check `GET /health` → `{"status":"ok"}` and `GET /health/ready` (DB probe) → `{"status":"ready"}`.
+Then open **http://localhost:8000/admin/**, create a bot, set its provider and key, upload
+a document, and copy the script tag onto your page.
+
+For local work, the dev override also publishes Postgres and Redis on localhost:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+```
+
+`app` runs `alembic upgrade head` and serves on port 8000; `worker` starts only once the
+app reports ready. `GET /health` is liveness; `GET /health/ready` checks the database,
+Redis **and** the uploads volume, and is what the worker waits on.
+
+### Run the tests
+
+```bash
+cd server
+uv run pytest tests/unit -q     # no Docker needed, about a second
+uv run pytest -q                # everything; integration needs Docker
+cd ../widget && npm ci && npm test && npm run build
+```
+
+The unit tier runs with the Docker daemon down. The integration tier starts ephemeral
+`pgvector/pgvector:pg16` and `redis:7-alpine` containers, applies the real migrations, and
+exercises the API, the worker and retrieval. Live provider tests are deselected unless
+`MISTRAL_API_KEY` is set and you ask for them with `-m live`.
 
 ### Environment variables (`.env`)
 
 | Var | Meaning |
 |---|---|
-| `DATABASE_URL` | `postgresql+asyncpg://…` (runtime); Alembic swaps to `+psycopg` internally |
+| `DATABASE_URL` | `postgresql+asyncpg://…`; Alembic swaps to `+psycopg` itself |
 | `REDIS_URL` | `redis://redis:6379/0` |
-| `JWT_SECRET` | auth signing secret (used from Phase 5) |
-| `ENCRYPTION_KEY` | **Fernet key** — encrypts provider API keys at rest; required in prod |
-| `CORS_ORIGINS` | JSON list; base CORS (per-bot `allowed_origins` is the real gate, Phase 4) |
+| `JWT_SECRET` | signing secret for admin sessions; `APP_ENV=prod` refuses the placeholder |
+| `ENCRYPTION_KEY` | **Fernet key**, encrypts provider API keys at rest; `APP_ENV=prod` refuses an invalid one. **Back it up** — without it the stored keys are unreadable |
+| `STORAGE_ROOT` | where original uploads live; app and worker must share this volume |
+| `CORS_ORIGINS` | JSON list, only for an admin UI served from another origin. The public chat endpoint uses each bot's own `allowed_origins` and never a wildcard |
+| `TRUSTED_PROXY_IPS` | JSON list of proxies allowed to set `X-Forwarded-For`; without it a visitor rotates the header for a fresh quota |
 | `APP_ENV` | `dev` / `prod` |
 
-`.env` is git-ignored — never commit real keys. Only `.env.example` (placeholders) is tracked.
+`.env` is git-ignored — never commit real keys. Only `.env.example` is tracked.
 
-## Roadmap & status
+## Operating it
 
-> **Planning update (2026-09-10):** the [revised design](docs/superpowers/specs/2026-09-10-graft-redesign.md) and [implementation plan for the next contributor](docs/superpowers/plans/2026-09-10-graft-redesign-plan.md) supersede the future execution order below. No new functionality is implemented by this documentation update. Start with plan task 0.
+[docs/operations/first-release.md](docs/operations/first-release.md) covers upgrades,
+backup and a **verified** restore, the retention and cleanup commands, and what to do
+about documents ingested before the storage/fingerprint migration.
 
-Built iteratively, one phase at a time; each phase has a plan in `docs/superpowers/plans/` and lands on `main` only after tests pass and review.
+## Status
 
-| Phase | Scope | Status |
-|---|---|---|
-| 1 — Foundation | FastAPI app, config, async DB, Alembic core schema, Fernet crypto, compose | ✅ merged |
-| 2a — Provider abstraction | Protocols, config, OpenAI-compatible adapter, factory | ✅ merged |
-| 2b — More providers | Anthropic (native); Google & Mistral via OpenAI-compat | ✅ merged |
-| 3a — Ingestion pipeline | chunks table, parsing, chunking, `ingest_document` | ✅ merged |
-| **3b — Async ingestion** | Redis queue + background worker | ⬜ next |
-| 4 — RAG + Chat API | retrieval (exact KNN), grounded prompt, SSE streaming, rate limit | ⬜ |
-| 5 — Auth + RBAC | FastAPI Users, JWT, roles (owner/editor/viewer), `bot_members` | ⬜ |
-| 6 — Admin API | REST CRUD (bots, docs, users, conversations) | ⬜ |
-| 7 — Admin SPA | Refine + Ant Design dashboard | ⬜ |
-| 8 — Widget | TypeScript Shadow DOM embed (`graft.js`) | ⬜ |
+Increments A and B of the [implementation plan](docs/superpowers/plans/2026-09-10-graft-redesign-plan.md)
+are complete: reliable ingestion, grounded chat with verifiable citations, the widget, and
+the first live quality measurement.
 
-Current commit sits at end of **Phase 3a**. See [wiki/project/status.md](wiki/project/status.md) and [wiki/project/roadmap.md](wiki/project/roadmap.md).
+| Piece | State |
+|---|---|
+| Foundation, providers (6 backends), ingestion | done |
+| Durable originals, lifecycle, embedding fingerprint | done |
+| Worker: leases, fencing, bounded retries, per-minute sweep | done |
+| Owner login, admin API (bots, documents, conversations) | done |
+| Retrieval, grounded answers, validated citations | done |
+| Public SSE chat: per-bot origins, rate limits, transcripts | done |
+| Widget (`graft.js`) and the admin surface at `/admin/` | done |
+| Reproducible deploy, backup and restore | done |
+| CI, release documentation | next |
+| RBAC (editor/viewer) and the Refine dashboard | after the first release |
 
-## Continuing the work (for a colleague)
+**Measured, not claimed:** the first live evaluation (`mistral-embed` + `ministral-8b-latest`,
+21 questions × 3 passes) refused 6/6 unanswerable questions every pass, cited the right
+document 8/8 every pass, and produced zero citations pointing at nothing. Full write-up,
+including what it does *not* show, in
+[docs/evidence/rag-baseline.md](docs/evidence/rag-baseline.md).
 
-1. Read [wiki/agent/handoff.md](wiki/agent/handoff.md) — the "start here" for the next contributor.
-2. Skim the [design spec](docs/superpowers/specs/2026-09-08-graft-design.md) and the [wiki](wiki/index.md).
-3. The next unit of work is **Phase 3b**; the plans in `docs/superpowers/plans/` show the house style (spec → bite-sized TDD plan → implement → review → merge). Follow the same shape for new phases.
-4. Conventions: every change is TDD, `uv run ruff check .` clean, test output pristine, migrations match models exactly, provider keys never logged. See [wiki/engineering/development.md](wiki/engineering/development.md).
+Only the Mistral path has live evidence. The other five provider backends are implemented
+and unit-tested against fakes, and are **not** verified against a live endpoint.
+
+See [wiki/project/status.md](wiki/project/status.md) for the full picture.
+
+## Contributing
+
+1. Read [wiki/agent/handoff.md](wiki/agent/handoff.md), then the [wiki index](wiki/index.md).
+2. Work from [the plan](docs/superpowers/plans/2026-09-10-graft-redesign-plan.md); tasks are
+   bite-sized and test-first.
+3. Conventions: TDD, `uv run ruff check .` clean, pristine test output, migrations match
+   the models exactly, provider keys never logged or returned. UI work follows
+   [DESIGN.md](DESIGN.md) and [PRODUCT.md](PRODUCT.md).
 
 ## License
 
-Intended as open source. License not yet chosen — **To be confirmed** by the project owner before public release.
+Intended as open source. **License not yet chosen** — to be decided by the project owner
+before any public distribution.

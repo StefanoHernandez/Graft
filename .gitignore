@@ -7,3 +7,10 @@ __pycache__/
 .venv/
 server/.venv/
 .env
+.env.local
+server/.env.local
+
+# Impeccable working artefacts: review captures and the decision-page log are
+# evidence for one run, not repository content. The surface brief is kept.
+.impeccable/review/
+.impeccable/questions/

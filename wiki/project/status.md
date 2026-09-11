@@ -1,48 +1,114 @@
 ---
 title: Project status
-updated: 2026-09-10
-sources: [docs/superpowers/plans/*, git log, docs/superpowers/specs/2026-09-10-graft-redesign.md, docs/superpowers/plans/2026-09-10-graft-redesign-plan.md]
-source_commit: c16dbae
+updated: 2026-09-11
+sources: [docs/superpowers/plans/2026-09-10-graft-redesign-plan.md, git log]
+source_commit: 5239138
 confidence: high
 ---
 
 # Project status
 
-## Planning update — 2026-09-10
+**As of 2026-09-11, branch `feat/graft-redesign-a` — increments A, B and C complete (tasks 0–14).**
 
-Implementation remains at Phase 3a; documentation baseline is `c16dbae`. A [redesign plan](../../docs/superpowers/plans/2026-09-10-graft-redesign-plan.md) is ready for the colleague. Next: task 0, reproduce the baseline and separate unit/integration tests, then tasks 1–6. Test/lint success below is the earlier recorded result; it was not rerun during this planning pass because no local virtualenv was present.
+The [redesign plan](../../docs/superpowers/plans/2026-09-10-graft-redesign-plan.md)
+replaces the old phase numbering with tasks in three gated increments. Phases 1–3a are
+kept; tasks 0–4 corrected them.
 
-**As of 2026-09-10, commit `4826fc6` — end of Phase 3a.**
+- 320 backend tests (160 unit run with **no Docker**) plus 17 widget tests, 0 warnings,
+  ruff and tsc clean. 6 live tests are deselected unless a provider key is present.
+- **End to end works:** upload → durable storage → background ingestion → grounded answer
+  with checkable citations, delivered to a widget on a page Graft does not serve.
+- The admin surface, the reproducible deploy and the operator commands are in.
+  Remaining before calling it a release: **run the CI on GitHub** (the workflow exists and
+  every job was run locally, but it has never executed on a runner), and the owner's
+  **licence decision**.
 
-- Backend foundation, provider layer (6 backends), and the synchronous ingestion
-  pipeline are implemented, tested (46 tests, testcontainers Postgres), lint-clean, and
-  merged to `main`.
-- No user-facing surface yet: the Chat API, admin dashboard, and browser widget are
-  future phases.
+## Done — increment A
 
-## Done
+| Task | What landed |
+|---|---|
+| 0 | Unit/integration split; unit tier runs with Docker down (~1s) |
+| 1 | Coded, non-leaking provider errors; embedding batch validation; prod config guards |
+| 2 | Migration `0003`, durable originals, embedding fingerprint |
+| 3 | Provenance-carrying parser, paragraph chunking, parser in a killable subprocess |
+| 4 | Short transactions, claim/heartbeat/fencing, batched embeddings |
+| 5 | Owner login (no registration route), admin API for bots and documents |
+| 6 | arq worker, per-minute dispatcher, worker service in compose |
 
-- **Phase 1 — Foundation:** FastAPI app + health/readiness, config, async DB, Alembic core
-  schema (`0001`), Fernet crypto, docker-compose (app + pgvector + redis).
-- **Phase 2a — Provider abstraction:** Protocols, config, OpenAI-compatible adapter, factory.
-- **Phase 2b — Providers:** native Anthropic; Google & Mistral via OpenAI-compat; factory
-  branches; decrypt-failure handling; OpenAI-adapter hardening.
-- **Phase 3a — Ingestion pipeline:** `chunks` table (`0002`), parsing (pdf/md/txt),
-  chunking, `ingest_document`.
+## Gate B — evidence (2026-09-11)
 
-## Next
+First live evaluation, `mistral-embed` + `ministral-8b-latest`, 21 questions × 3 passes:
+**6/6 absent questions refused every pass**, **8/8 answerable cited the right document
+every pass**, **0 citations pointing at nothing**, 0 errors. The planted prompt injection
+was reported as content, never obeyed; all three conflicting cases cited both sides.
+Median first token 0.92s.
 
-- **Phase 3b — Async ingestion:** Redis queue + background worker.
+The calibration finding matters as much as the score: with `mistral-embed` every question
+scores above 0.70, so `min_score=0.5` never triggers an abstention — every refusal came
+from the model obeying the grounded prompt. Full write-up, including what this does *not*
+show, in [docs/evidence/rag-baseline.md](../../docs/evidence/rag-baseline.md).
 
-## Not started
+The widget was verified on a page served from another origin: an answer with an expandable
+source reading `S1 · installation.md · Requirements` (providers stubbed for that run).
 
-Phase 4 (RAG + Chat API), 5 (auth + RBAC), 6 (Admin API), 7 (Admin SPA), 8 (widget).
+## Gate A — evidence
 
-## Health
+Run on `docker compose up` (2026-09-11) with embeddings pointed at an unreachable
+endpoint: upload committed `pending` and enqueued immediately, the worker claimed it,
+retried after 10s and 30s, and the sweep ended it `failed / attempts_exhausted` with
+nothing left in `processing`. The run found a real bug — `WorkerSettings.redis_settings`
+as a method killed the worker at boot while the app stayed healthy — now fixed and guarded
+by a unit test.
 
-- Tests: green, pristine. Lint: clean.
-- Open carry-forward items tracked in [decisions](decisions.md) and the engineering pages
-  (notably: normalize provider stream errors before Phase 4; live smoke-test Google/Mistral;
-  batch embeds for large docs).
+**Not yet verified:** the `ready` path against a **live** embedding provider. It is
+covered by integration tests with a fake embedder against real infrastructure; the live
+evidence is task 11.
 
-See [roadmap](roadmap.md) for the full plan.
+## Done — increment B
+
+| Task | What landed |
+|---|---|
+| 7 | Exact KNN retrieval scoped by fingerprint; 21-case evaluation corpus |
+| 8 | Grounded prompt and answer service with validated citations |
+| 9 | Public SSE chat: per-bot origins, Lua rate limits, attempt persistence |
+| 10 | Embeddable widget — one script tag, Shadow DOM, no runtime dependencies |
+| 11 | Live evaluation script, opt-in live tests, first real baseline |
+
+## Done — increment C
+
+| Task | What landed |
+|---|---|
+| 12 | Admin surface at `/admin/` — the copy-desk world, plus the conversations API |
+| 13 | Digest-pinned reproducible image, real readiness, operator commands, restore guide |
+| 14 | CI workflow, honest README, this report |
+
+## Gate C — evidence (2026-09-11)
+
+Run against the **built images**, not a development server:
+
+- `docker compose build` then `up -d`: app healthy, worker started only after it, and
+  `/health/ready` reporting `database: ok, redis: ok, storage: ok`.
+- The widget bundle is produced inside the image by a pinned Node stage and served at
+  `/widget/graft.js` (7432 bytes).
+- Owner created with the CLI inside the container; a second attempt was refused by the
+  advisory lock.
+- Upload → **ready in five seconds** → the chat endpoint answered with a validated
+  citation, over the shared uploads volume between app and worker.
+- Postgres and Redis publish no host ports in the base compose file; the dev override is
+  the only place they do.
+- `alembic check` inside the container: no drift between the models and the migrations.
+- Every CI job was executed locally, including the unit tier with `DOCKER_HOST` pointed at
+  a socket that does not exist.
+
+**Not verified when this was written:** the CI had never run on a GitHub runner. The
+workflow now triggers on **every push**, so the branch's first real run happens without a
+pull request; check the Actions tab for the outcome. Restore was documented and each of its three checks is exercised by the smoke
+above, but a full dump-and-restore cycle has not been performed end to end.
+
+## Still open before a public release
+
+1. **Licence.** Undecided, and deliberately not chosen on the owner's behalf.
+2. **Five of six providers have no live evidence.** Only the Mistral path was measured.
+3. **RBAC and the Refine dashboard** (tasks 15–16) are after the first release by design.
+
+See [roadmap](roadmap.md).

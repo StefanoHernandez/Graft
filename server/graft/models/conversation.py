@@ -25,3 +25,9 @@ class Message(UUIDMixin, TimestampMixin, Base):
     role: Mapped[str] = mapped_column(String(16))
     content: Mapped[str] = mapped_column(Text)
     citations: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+
+    # One chat attempt, so an interrupted stream is distinguishable from an answer.
+    # The user row is written first as "cancelled" and settled at the end; the
+    # assistant row is only inserted on a valid completion.
+    request_id: Mapped[uuid.UUID | None] = mapped_column(nullable=True)
+    status: Mapped[str] = mapped_column(String(16), default="completed", server_default="completed")

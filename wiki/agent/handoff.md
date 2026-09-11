@@ -1,8 +1,8 @@
 ---
 title: Handoff — start here
-updated: 2026-09-10
+updated: 2026-09-11
 sources: [README.md, docs/superpowers/**, docs/superpowers/specs/2026-09-10-graft-redesign.md, docs/superpowers/plans/2026-09-10-graft-redesign-plan.md]
-source_commit: c16dbae
+source_commit: 5239138
 confidence: high
 ---
 
@@ -10,14 +10,36 @@ confidence: high
 
 ## Baton For Next Coding Agent
 
-Read [the revised spec](../../docs/superpowers/specs/2026-09-10-graft-redesign.md) and [the detailed plan](../../docs/superpowers/plans/2026-09-10-graft-redesign-plan.md). Future-work instructions below this section are historical and superseded where they conflict. No application code was changed in this planning pass.
+Tasks 0–14 of [the plan](../../docs/superpowers/plans/2026-09-10-graft-redesign-plan.md)
+are done and on `feat/graft-redesign-a`. Graft works end to end: upload a document through
+`/admin/`, a worker ingests it, and the widget answers on another origin with a checkable
+source. Evidence for each gate is in [status](../project/status.md).
 
-| Order | Task | Start files | Done when | Verification command | Notes / blockers |
-|---|---|---|---|---|---|
-| 1 | Plan task 0: baseline and test separation | server/tests/conftest.py; new plan | Unit tests run without Docker; integration still uses migrations | From server: `uv run pytest tests/unit -q` after task 0 | Not verified; virtualenv absent during planning |
-| 2 | Plan tasks 1–6: reliable ingestion | new spec sections 4–6 | Gate A: authenticated upload survives worker restart | From server after implementation: `uv run pytest tests/integration -q` | Includes auth and source storage |
-| 3 | Plan tasks 7–11: RAG and widget | new plan | Gate B: widget demo and live evidence | Plan tasks 10–11 commands | Live credentials required |
-| 4 | Plan tasks 12–14: release | new plan | Gate C: admin, build and restore verified | Plan tasks 12–14 commands | Licence selection before public release |
+Run it yourself before changing anything:
+
+```bash
+cp .env.example .env      # put a real Fernet key in ENCRYPTION_KEY
+docker compose up -d
+docker compose exec app /app/.venv/bin/python -m graft.cli create-admin you@example.com
+open http://localhost:8000/admin/
+```
+
+| Order | Task | Start here | Done when |
+|---|---|---|---|
+| 1 | Confirm the CI is green on a real runner | GitHub Actions tab | The workflow runs on every push; every job green. Until then it has only ever run locally |
+| 2 | Choose a licence | root `README.md` | The owner decides; do not pick one for them |
+| 3 | Verify the other five providers | `docs/evidence/rag-baseline.md`, `server/tests/live/` | Each backend has a dated live result; today only Mistral does |
+| 4 | Plan task 15: RBAC | `server/graft/security/auth.py` | Editor and viewer enforced on the backend before any button is hidden |
+| 5 | Plan task 16: Refine dashboard | `server/graft/static/admin/` | Parity with the current surface before it is removed |
+
+House rules that are not obvious from the code:
+
+- **Test-first**, `uv run ruff check .` clean, and **zero warnings** in the test output.
+- The unit tier must keep running with Docker down: `DOCKER_HOST=unix:///nonexistent uv run pytest tests/unit -q`.
+- Migrations match the models exactly — CI runs `alembic check`.
+- Provider keys are never logged, never returned by the API, and never put in a job payload.
+- UI work follows [DESIGN.md](../../DESIGN.md) and [PRODUCT.md](../../PRODUCT.md); the
+  direction contract for the admin surface lives in `.impeccable/surfaces/`.
 
 Welcome. This is the fastest path to being productive on Graft.
 

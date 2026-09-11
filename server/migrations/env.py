@@ -11,7 +11,10 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # Runtime uses asyncpg; Alembic uses the sync psycopg driver on the same DB.
-url = get_settings().database_url.replace("+asyncpg", "+psycopg")
+# An explicit url set by the caller wins, so tests and ops tooling can migrate a
+# database other than the configured one.
+url = config.get_main_option("sqlalchemy.url") or get_settings().database_url
+url = url.replace("+asyncpg", "+psycopg")
 config.set_main_option("sqlalchemy.url", url)
 
 target_metadata = Base.metadata

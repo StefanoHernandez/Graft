@@ -1,3 +1,6 @@
+# Production shape: nothing but the app is reachable from outside the host.
+# For local work use the dev override, which publishes the database and Redis:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up
 services:
   db:
     image: pgvector/pgvector:pg16
@@ -5,8 +8,6 @@ services:
       POSTGRES_USER: graft
       POSTGRES_PASSWORD: graft
       POSTGRES_DB: graft
-    ports:
-      - "5432:5432"
     volumes:
       - graft_db:/var/lib/postgresql/data
     healthcheck:
@@ -17,19 +18,61 @@ services:
 
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
+    # Append-only so a restart does not silently drop queued jobs. Even when it
+    # does lose them, the worker's dispatcher rebuilds the queue from Postgres.
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - graft_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   app:
-    build: ./server
+    build:
+      # The repo root, so the image can build the widget bundle from widget/.
+      context: .
+      dockerfile: server/Dockerfile
     env_file: .env
     depends_on:
       db:
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
     ports:
       - "8000:8000"
+    volumes:
+      - graft_uploads:/data/uploads
+    healthcheck:
+      # Readiness, not liveness: it proves the database, Redis and the storage
+      # directory are all reachable before the worker is allowed to start.
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready')"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  worker:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    env_file: .env
+    # Migrations run once, from the app entrypoint. A worker that also migrated
+    # would race the app on every deploy.
+    entrypoint: ["/app/.venv/bin/arq", "graft.ingestion.worker.WorkerSettings"]
+    depends_on:
+      app:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      # The same originals the app wrote: the worker re-reads them on every attempt.
+      - graft_uploads:/data/uploads
 
 volumes:
   graft_db:
+  graft_redis:
+  graft_uploads:
