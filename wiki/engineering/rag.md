@@ -2,7 +2,7 @@
 title: Retrieval and RAG
 updated: 2026-09-11
 sources: [server/graft/rag/*.py, server/tests/integration/test_retrieval.py, server/tests/fixtures/rag/*]
-source_commit: 47e3204
+source_commit: 140633f
 confidence: high
 ---
 
@@ -75,6 +75,52 @@ Yields `delta` events, then exactly one `done` **or** one `error`.
 - A provider failure becomes one `error` with the stable code and no `done`. Closing the
   stream closes the provider generation, so a visitor who leaves does not leave a
   generation running.
+
+## Public chat endpoint (`api/chat.py`)
+
+`POST /api/v1/chat` with `{bot_key, session_id?, message}`, answering SSE over POST — so
+a browser uses `fetch` + `ReadableStream`, not `EventSource`.
+
+**Order is the security property.** Body validation, bot lookup, origin, rate limits and
+concurrency slots all run before a provider is built, because the cheapest way to spend
+someone else's budget is an endpoint that calls the model first.
+
+| Refusal | Status | Code |
+|---|---|---|
+| malformed body, empty or >2000 chars | 400 | `invalid_request` |
+| unknown `bot_key` | 404 | `bot_not_found` |
+| foreign, missing or `null` Origin | 403 | `origin_not_allowed` |
+| over 10/min per bot+IP or 100/min per bot, or bot at 2 live generations | 429 | `rate_limited` |
+| another request live on the same conversation | 409 | `conversation_busy` |
+| Redis unreachable, or unusable provider config | 503 | `dependency_unavailable` / `provider_config` |
+
+Errors **before** the stream are plain JSON, `{"error": {"code", "request_id"}}`; once the
+stream starts, a failure is a final `error` frame with no `done`.
+
+- **Frames:** `meta` (session id, request id), `delta`, then exactly one `done` or one
+  `error`. A `: keep-alive` comment goes out every 15s of silence, because a quiet minute
+  is how a proxy or a phone radio kills a live answer. `Cache-Control: no-cache` and
+  `X-Accel-Buffering: no` (nginx would otherwise hold every token until the end).
+- **Origins** are matched exactly, per bot, no wildcard (see `security/origins.py`). The
+  preflight carries no body, so it is allowed for any origin *some* bot knows and the
+  exact bot is checked on the POST; `Vary: Origin` on every response. CORS is a browser
+  rule, not authentication — anything outside a browser can send any Origin, so this
+  limits which pages spend a bot's quota and must never be sold as more.
+- **Sessions** are server-generated (256 bits) and looked up per bot, so the same string
+  never joins two bots' conversations. The session id is the visitor's capability: there
+  is no endpoint that lists conversations.
+- **History is read from the database**, never from the payload — a visitor cannot hand
+  the model a conversation that never happened. Last 6 completed messages, 8000 chars.
+- **Persistence:** the user row is written first as `cancelled`, so a process that dies
+  mid-answer already says the attempt never completed. The assistant row and the switch to
+  `completed` happen in one final transaction, only for an answer that passed citation
+  validation.
+- **Limits** live in `security/rate_limit.py` as Lua, so check-and-write is one step; a
+  broken Redis fails **closed**. `X-Forwarded-For` is trusted only from peers listed in
+  `trusted_proxy_ips`, otherwise a visitor rotates the header for a fresh quota.
+
+The app-wide CORS middleware no longer falls back to `*`: it is only mounted when
+`CORS_ORIGINS` is set, for an admin UI on another origin.
 
 ## Evaluation corpus (`tests/fixtures/rag/`)
 

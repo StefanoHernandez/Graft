@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     # Where uploaded originals live. App and worker must mount the same volume:
     # the worker re-reads the original on every attempt.
     storage_root: Path = Path("/data/uploads")
+    # Only these peers may set X-Forwarded-For on the public chat endpoint;
+    # otherwise a visitor rotates the header and gets a fresh quota every time.
+    trusted_proxy_ips: list[str] = []
 
     @model_validator(mode="after")
     def _reject_placeholder_secrets_in_prod(self) -> "Settings":

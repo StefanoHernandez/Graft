@@ -5,7 +5,7 @@ from arq.connections import RedisSettings, create_pool
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .api import admin, health
+from .api import admin, chat, health
 from .config import get_settings
 from .security.auth import auth_backend, fastapi_users
 
@@ -33,12 +33,16 @@ async def lifespan(app: FastAPI):
 def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(title="Graft", lifespan=lifespan)
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=settings.cors_origins or ["*"],
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+    if settings.cors_origins:
+        # Only for an admin UI served from another origin. The public chat endpoint
+        # does its own per-bot origin check: a wildcard there would let any page
+        # spend any bot's quota.
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=settings.cors_origins,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
     app.include_router(health.router)
     # Login only: accounts come from `python -m graft.cli create-admin`, never
     # from a public registration route.
@@ -46,6 +50,7 @@ def create_app() -> FastAPI:
         fastapi_users.get_auth_router(auth_backend), prefix="/auth/jwt", tags=["auth"]
     )
     app.include_router(admin.router)
+    app.include_router(chat.router)
     return app
 
 
