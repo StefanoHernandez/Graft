@@ -393,6 +393,38 @@ async def test_upload_hints_the_worker(ready_client, auth):
     assert pool.jobs[0][2]["_job_id"] == f"ingest:{created['id']}"
 
 
+async def test_retry_hints_the_worker_immediately(db_engine, ready_client, auth):
+    """Otherwise the operator watches nothing happen until the next sweep."""
+    from graft.main import app
+
+    class _Pool:
+        def __init__(self):
+            self.jobs = []
+
+        async def enqueue_job(self, name, *args, **kwargs):
+            self.jobs.append(args)
+            return object()
+
+    bot = await _bot(ready_client, auth)
+    created = (await _upload(ready_client, auth, bot["id"])).json()
+    maker = async_sessionmaker(db_engine, expire_on_commit=False)
+    async with maker() as session:
+        doc = await session.get(Document, uuid.UUID(created["id"]))
+        doc.status = "failed"
+        await session.commit()
+
+    pool = _Pool()
+    app.state.arq = pool
+    try:
+        resp = await ready_client.post(
+            f"/api/v1/admin/documents/{created['id']}/retry", headers=auth
+        )
+    finally:
+        app.state.arq = None
+    assert resp.status_code == 202
+    assert pool.jobs == [(created["id"],)]
+
+
 async def test_upload_survives_an_unreachable_redis(db_engine, ready_client, auth):
     """The row is the work list: a queue outage delays ingestion, it does not lose it."""
     from graft.main import app

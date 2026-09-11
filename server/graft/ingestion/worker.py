@@ -149,8 +149,21 @@ async def dispatch_pending(ctx: dict) -> list[str]:
     return [str(document_id) for document_id in claimable]
 
 
+async def on_startup(ctx: dict) -> None:
+    ctx["sessionmaker"] = get_sessionmaker()
+
+
+async def on_shutdown(ctx: dict) -> None:
+    await get_engine().dispose()
+
+
 class WorkerSettings:
-    """`uv run arq graft.ingestion.worker.WorkerSettings`."""
+    """`uv run arq graft.ingestion.worker.WorkerSettings`.
+
+    arq reads these as plain attributes and never calls them, so every entry has
+    to already be the value it needs — a method here silently becomes garbage
+    that only fails at worker startup.
+    """
 
     functions: ClassVar = [ingest_job]
     cron_jobs: ClassVar = [cron(dispatch_pending, second=0, run_at_startup=True)]
@@ -161,18 +174,9 @@ class WorkerSettings:
     job_timeout = JOB_TIMEOUT_SECONDS
     keep_result = 0
     max_tries = DEFAULT_MAX_ATTEMPTS
-
-    @staticmethod
-    def redis_settings() -> RedisSettings:
-        return RedisSettings.from_dsn(get_settings().redis_url)
-
-    @staticmethod
-    async def on_startup(ctx: dict) -> None:
-        ctx["sessionmaker"] = get_sessionmaker()
-
-    @staticmethod
-    async def on_shutdown(ctx: dict) -> None:
-        await get_engine().dispose()
+    redis_settings = RedisSettings.from_dsn(get_settings().redis_url)
+    on_startup = on_startup
+    on_shutdown = on_shutdown
 
 
 __all__ = ["JOB_NAME", "WorkerSettings", "dispatch_pending", "ingest_job"]

@@ -366,6 +366,7 @@ async def _read_within_limit(file: UploadFile) -> bytes:
 @router.post("/documents/{document_id}/retry", status_code=status.HTTP_202_ACCEPTED)
 async def retry_document(
     document_id: uuid.UUID,
+    request: Request,
     session: AsyncSession = Depends(get_session),  # noqa: B008
 ) -> DocumentOut:
     document = await _get_document(session, document_id)
@@ -381,6 +382,9 @@ async def retry_document(
     # `updated_at` is set by the database on update, so the in-memory value is
     # stale until we read it back.
     await session.refresh(document)
+    # Without this the operator waits for the next sweep — up to a minute of
+    # nothing happening after they pressed retry.
+    await _hint_the_worker(request, document.id)
     return DocumentOut.model_validate(document, from_attributes=True)
 
 

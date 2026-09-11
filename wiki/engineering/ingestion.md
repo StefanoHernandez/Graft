@@ -87,8 +87,21 @@ worker.
   be claimed again. This is what makes a Redis outage cost latency instead of a document.
 - `WorkerSettings`: `max_jobs=1`, `job_timeout=600`, `keep_result=0`; run it with
   `uv run arq graft.ingestion.worker.WorkerSettings`.
-- The upload endpoint enqueues **after** the commit and never fails the request when
-  Redis is unreachable.
+- The upload endpoint (and the retry endpoint) enqueue **after** the commit and never
+  fail the request when Redis is unreachable.
+- `WorkerSettings` entries are read by arq as plain attributes and never called, so
+  `redis_settings` is a value, not a method. Getting that wrong does not fail at import —
+  it kills the worker at boot, inside a container, where nobody is watching.
+  `tests/unit/test_worker_settings.py` guards it.
+
+### Observed on a real stack (2026-09-11, commit b8dc0fd + fix)
+
+`docker compose up`, upload through the admin API, embeddings pointed at an
+unreachable endpoint: upload committed `pending` and enqueued immediately; the worker
+claimed it, retried after **10s** then **30s**, and the 60-second sweep marked it
+`failed / attempts_exhausted`. Nothing was left in `processing`. The `ready` path is
+covered by integration tests against a real Postgres and Redis with a fake embedder —
+it has **not** been run against a live embedding provider yet (that is task 11).
 
 ## Contract & invariants
 
