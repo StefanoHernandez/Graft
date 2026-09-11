@@ -1,0 +1,12 @@
+# Local development only. Publishing Postgres and Redis is convenient on a
+# laptop and an open door on a server, which is why it lives in an override
+# instead of the file people deploy:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+services:
+  db:
+    ports:
+      - "127.0.0.1:5432:5432"
+
+  redis:
+    ports:
+      - "127.0.0.1:6379:6379"
