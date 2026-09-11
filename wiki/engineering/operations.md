@@ -2,7 +2,7 @@
 title: Operations
 updated: 2026-09-10
 sources: [docker-compose.yml, server/Dockerfile, server/entrypoint.sh, server/graft/config.py, .env.example]
-source_commit: 4826fc6
+source_commit: 9a58098
 confidence: high
 ---
 
@@ -15,13 +15,23 @@ cp .env.example .env
 # set ENCRYPTION_KEY to a Fernet key:
 python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 docker compose up
+
+# create the operator account (asks for the password, no echo)
+docker compose exec app uv run python -m graft.cli create-admin you@example.com
 ```
 
 - `db` — `pgvector/pgvector:pg16`, `pg_isready` healthcheck, named volume `graft_db`
   (data persists across restarts).
-- `redis` — `redis:7-alpine` (used from Phase 3b).
-- `app` — built from `server/Dockerfile`; waits for db healthy + redis; `entrypoint.sh`
+- `redis` — `redis:7-alpine` with `--appendonly yes` and the `graft_redis` volume, so a
+  restart does not silently drop queued jobs.
+- `app` — built from `server/Dockerfile`; waits for db and redis healthy; `entrypoint.sh`
   runs `alembic upgrade head` then `uvicorn graft.main:app --host 0.0.0.0 --port 8000`.
+- `worker` — the **same image**, entrypoint replaced by
+  `uv run arq graft.ingestion.worker.WorkerSettings`. It waits for the app to be healthy
+  and deliberately does **not** run Alembic: migrations happen once, from the app, or the
+  two race on every deploy. Upgrades: stop the worker, migrate, start it again.
+- `graft_uploads` is mounted by both app and worker — the worker re-reads the original on
+  every attempt, so they must see the same volume.
 
 Health checks: `GET /health` (liveness) and `GET /health/ready` (DB probe).
 
@@ -47,8 +57,14 @@ the app does not race an unready database.
 ## Known operational gaps (by phase)
 
 - **No public Chat API / widget yet** — nothing serves end-user traffic before Phase 4/8.
-- **Ingestion is synchronous** — the Redis worker is Phase 3b; large PDFs currently have
-  no size/time guard (add at the Phase 6 upload boundary).
+- **Queue semantics are at-least-once.** arq can run a job twice; the run id in the
+  database is what decides whose result counts. A crash after the commit but before the
+  ack replays the job, which then sees `ready` and exits. Repeated embedding calls after a
+  crash can cost money twice — accepted, this is not exactly-once.
+- **Losing Redis loses latency, not work.** The dispatcher sweeps Postgres every minute
+  for `pending` documents and expired leases and re-enqueues them, and an upload whose
+  enqueue fails still commits its row. A document that exhausts its three attempts is
+  marked `failed` with `attempts_exhausted` — nothing stays in `processing` forever.
 - **Rate limiting** (Redis) and **per-bot CORS origin enforcement** arrive with the Chat
   API (Phase 4); today CORS defaults to `*`.
 - **Provider endpoints:** Google/Mistral go through their OpenAI-compatible endpoints.

@@ -17,8 +17,18 @@ services:
 
   redis:
     image: redis:7-alpine
+    # Append-only so a restart does not silently drop queued jobs. Even when it
+    # does lose them, the worker's dispatcher rebuilds the queue from Postgres.
+    command: ["redis-server", "--appendonly", "yes"]
     ports:
       - "6379:6379"
+    volumes:
+      - graft_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   app:
     build: ./server
@@ -27,9 +37,36 @@ services:
       db:
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
     ports:
       - "8000:8000"
+    volumes:
+      - graft_uploads:/data/uploads
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  worker:
+    build: ./server
+    env_file: .env
+    # Migrations run once, from the app entrypoint. A worker that also migrated
+    # would race the app on every deploy.
+    entrypoint: ["uv", "run", "arq", "graft.ingestion.worker.WorkerSettings"]
+    depends_on:
+      app:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      # The same originals the app wrote: the worker re-reads them on every attempt.
+      - graft_uploads:/data/uploads
 
 volumes:
   graft_db:
+  graft_redis:
+  graft_uploads:

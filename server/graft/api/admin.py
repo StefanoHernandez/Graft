@@ -14,12 +14,22 @@ import logging
 import secrets
 import uuid
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    HTTPException,
+    Query,
+    Request,
+    UploadFile,
+    status,
+)
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import get_settings
 from ..db import get_session
+from ..ingestion.queue import enqueue_document
 from ..ingestion.storage import delete_bot_sources, delete_source, save_source
 from ..models import Bot, Chunk, Document
 from ..providers.base import ProviderError
@@ -281,6 +291,7 @@ async def list_documents(
 )
 async def upload_document(
     bot_id: uuid.UUID,
+    request: Request,
     file: UploadFile = File(...),  # noqa: B008
     session: AsyncSession = Depends(get_session),  # noqa: B008
 ) -> DocumentOut:
@@ -308,7 +319,25 @@ async def upload_document(
         # than leave an orphan nobody can attribute.
         delete_source(storage_root, document.storage_key)
         raise
+    await _hint_the_worker(request, document.id)
     return DocumentOut.model_validate(document, from_attributes=True)
+
+
+async def _hint_the_worker(request: Request, document_id: uuid.UUID) -> None:
+    """Best-effort enqueue, after the row is committed.
+
+    The document is already persisted as `pending`, and the worker's dispatcher
+    sweeps the database every minute, so a Redis outage delays ingestion instead
+    of losing it. That is why this never fails the request.
+    """
+    redis = getattr(request.app.state, "arq", None)
+    if redis is None:
+        return
+    try:
+        await enqueue_document(redis, document_id)
+    except Exception:  # noqa: BLE001 - any Redis failure falls back to the dispatcher
+        logger.warning("enqueue failed for document %s; dispatcher will pick it up",
+                       document_id)
 
 
 def _accepted_mime(file: UploadFile) -> str:

@@ -2,7 +2,7 @@
 title: Ingestion pipeline
 updated: 2026-09-10
 sources: [server/graft/ingestion/*.py, server/tests/**/test_ingestion_*.py, server/tests/unit/test_parse_process.py, docs/superpowers/plans/2026-09-10-graft-redesign-plan.md]
-source_commit: 78da67d
+source_commit: 9a58098
 confidence: high
 ---
 
@@ -69,6 +69,27 @@ worker.
    message — then re-raise. **Cancellation is not a failure**: the document stays
    `processing` so the lease expires and the dispatcher retries it.
 
+## Worker (`queue.py`, `worker.py`)
+
+- `enqueue_document(redis, document_id)` sends **an id and nothing else** — file bytes
+  would bloat Redis and provider keys have no business leaving the database. The job id
+  is stable (`ingest:{document_id}`), so a duplicate enqueue is a no-op.
+- `ingest_job(ctx, document_id)` skips a document that is already `ready` (a replay after
+  a lost ack) or gone, then runs the pipeline with the embedder built from the bot's
+  config with **`max_retries=0`** — the job owns retry, and stacking SDK retries under it
+  multiplies the wall clock and the bill.
+- Retry policy lives in the worker, not the pipeline: a **permanent** failure (bad key,
+  bad model, unparseable file) fails the document at once; a **transient** one puts it
+  back in `pending` and defers 10s then 30s, with the attempt still counted so three
+  tries means three tries.
+- `dispatch_pending(ctx)` runs every minute (and at startup): it re-enqueues `pending`
+  documents and expired leases, and marks `attempts_exhausted` on anything that can never
+  be claimed again. This is what makes a Redis outage cost latency instead of a document.
+- `WorkerSettings`: `max_jobs=1`, `job_timeout=600`, `keep_result=0`; run it with
+  `uv run arq graft.ingestion.worker.WorkerSettings`.
+- The upload endpoint enqueues **after** the commit and never fails the request when
+  Redis is unreachable.
+
 ## Contract & invariants
 
 - The caller passes an **already-persisted** `Document` (committed row) and **cedes
@@ -86,8 +107,6 @@ worker.
   and `parse_in_subprocess` wired into the pipeline (it exists but the pipeline still
   parses in-process). A failed re-ingest currently leaves the previous chunks in the
   table — deliberate, with `status` keeping them out of retrieval.
-- **Task 6:** Redis enqueue on upload plus the worker and its periodic dispatcher.
-- **Task 5 (upload endpoint):** sanitize `document.error` before the admin UI shows it;
-  enforce the 10 MiB upload ceiling.
+- **Task 12 (admin UI):** show `document.error` codes in a readable form.
 - `unstructured` optional parser backend (heavier extraction).
 - Retrieval over chunks is **not** here — it's the RAG engine in Phase 4.

@@ -365,3 +365,49 @@ async def test_provider_test_reports_codes_not_messages(ready_client, auth, monk
     body = resp.json()
     assert body["llm"] == {"ok": True, "code": None}
     assert body["embedding"] == {"ok": False, "code": "provider_auth"}
+
+
+# --- handing work to the worker ----------------------------------------------
+
+
+async def test_upload_hints_the_worker(ready_client, auth):
+    from graft.main import app
+
+    class _Pool:
+        def __init__(self):
+            self.jobs = []
+
+        async def enqueue_job(self, name, *args, **kwargs):
+            self.jobs.append((name, args, kwargs))
+            return object()
+
+    pool = _Pool()
+    app.state.arq = pool
+    try:
+        bot = await _bot(ready_client, auth)
+        created = (await _upload(ready_client, auth, bot["id"])).json()
+    finally:
+        app.state.arq = None
+    assert pool.jobs[0][0] == "ingest_job"
+    assert pool.jobs[0][1] == (created["id"],)
+    assert pool.jobs[0][2]["_job_id"] == f"ingest:{created['id']}"
+
+
+async def test_upload_survives_an_unreachable_redis(db_engine, ready_client, auth):
+    """The row is the work list: a queue outage delays ingestion, it does not lose it."""
+    from graft.main import app
+
+    class _DeadPool:
+        async def enqueue_job(self, *args, **kwargs):
+            raise ConnectionError("redis is down")
+
+    app.state.arq = _DeadPool()
+    try:
+        bot = await _bot(ready_client, auth)
+        resp = await _upload(ready_client, auth, bot["id"])
+    finally:
+        app.state.arq = None
+    assert resp.status_code == 202
+    maker = async_sessionmaker(db_engine, expire_on_commit=False)
+    async with maker() as session:
+        assert (await session.get(Document, uuid.UUID(resp.json()["id"]))).status == "pending"
