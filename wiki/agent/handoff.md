@@ -26,7 +26,7 @@ open http://localhost:8000/admin/
 
 | Order | Task | Start here | Done when |
 |---|---|---|---|
-| 1 | Run the CI on a GitHub runner | `.github/workflows/checks.yml` | Every job green on a real runner; it has only ever run locally |
+| 1 | Confirm the CI is green on a real runner | GitHub Actions tab | The workflow runs on every push; every job green. Until then it has only ever run locally |
 | 2 | Choose a licence | root `README.md` | The owner decides; do not pick one for them |
 | 3 | Verify the other five providers | `docs/evidence/rag-baseline.md`, `server/tests/live/` | Each backend has a dated live result; today only Mistral does |
 | 4 | Plan task 15: RBAC | `server/graft/security/auth.py` | Editor and viewer enforced on the backend before any button is hidden |

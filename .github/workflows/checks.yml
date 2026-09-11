@@ -3,9 +3,11 @@
 # request can never spend the owner's quota.
 name: checks
 
+# Runs on every push, so a branch gets its checks without needing a pull
+# request. `pull_request` is kept only for forks, which have no push access;
+# each job skips it otherwise, so a same-repo PR does not run everything twice.
 on:
   push:
-    branches: [main]
   pull_request:
   workflow_dispatch:
 
@@ -19,6 +21,7 @@ env:
 jobs:
   backend-unit:
     name: backend · unit + lint
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -40,6 +43,7 @@ jobs:
 
   backend-integration:
     name: backend · integration
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -56,6 +60,7 @@ jobs:
 
   migrations:
     name: backend · migrations match the models
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -90,6 +95,7 @@ jobs:
 
   widget:
     name: widget · types, tests, bundle
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -113,6 +119,7 @@ jobs:
 
   deploy:
     name: deploy · compose builds
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

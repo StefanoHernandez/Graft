@@ -100,8 +100,9 @@ Run against the **built images**, not a development server:
 - Every CI job was executed locally, including the unit tier with `DOCKER_HOST` pointed at
   a socket that does not exist.
 
-**Not verified:** the CI has never run on a GitHub runner — there is no remote push in
-this work. Restore was documented and each of its three checks is exercised by the smoke
+**Not verified when this was written:** the CI had never run on a GitHub runner. The
+workflow now triggers on **every push**, so the branch's first real run happens without a
+pull request; check the Actions tab for the outcome. Restore was documented and each of its three checks is exercised by the smoke
 above, but a full dump-and-restore cycle has not been performed end to end.
 
 ## Still open before a public release
