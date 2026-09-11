@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Graft — admin</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <header class="masthead">
+      <h1>Graft</h1>
+      <span class="instance" id="instance">admin</span>
+      <span class="spacer"></span>
+      <button type="button" class="quiet" id="signout" hidden>Sign out</button>
+    </header>
+
+    <!-- Sign in ------------------------------------------------------------ -->
+    <main class="signin" id="view-signin">
+      <div class="sheet">
+        <h2>Sign in</h2>
+        <p>
+          This is the admin side of your Graft instance. The account is created from the
+          command line with <code>python -m graft.cli create-admin</code>.
+        </p>
+        <form id="form-signin" class="stack">
+          <label>
+            Email
+            <input type="email" name="email" autocomplete="username" required />
+          </label>
+          <label>
+            Password
+            <input type="password" name="password" autocomplete="current-password" required />
+          </label>
+          <p class="notice problem" id="signin-problem" hidden></p>
+          <button type="submit" class="primary">Sign in</button>
+        </form>
+        <p class="empty">
+          The session is kept in memory only, so reloading this page signs you out.
+        </p>
+      </div>
+    </main>
+
+    <!-- Desk --------------------------------------------------------------- -->
+    <div class="desk" id="view-desk" hidden>
+      <nav class="rail" aria-label="Bots">
+        <h2>Bots</h2>
+        <ul id="bot-list"></ul>
+        <button type="button" class="new" id="bot-new">New bot…</button>
+      </nav>
+
+      <main class="sheet" id="workspace" tabindex="-1">
+        <p class="empty" id="loading">Loading…</p>
+      </main>
+    </div>
+
+    <!-- Templates ---------------------------------------------------------- -->
+    <template id="tpl-bot">
+      <h2 data-bot-name></h2>
+
+      <div class="section" data-section="snippet">
+        <h3>Put it on your site</h3>
+        <p class="empty" data-snippet-note>
+          One script tag, nothing else. Answers come only from the documents below, and the
+          visitor sees which one was used.
+        </p>
+        <div class="snippet">
+          <code data-snippet></code>
+          <button type="button" class="primary" data-copy>Copy</button>
+        </div>
+        <p class="empty" data-origins-note></p>
+      </div>
+
+      <div class="section" data-section="documents">
+        <h3>Documents</h3>
+        <div class="drop" data-drop>
+          <p class="drop-title">Add documents</p>
+          <p class="hint">
+            PDF with selectable text, Markdown or plain text, up to 10 MB each. You can
+            also drop files anywhere in this area.
+          </p>
+          <label class="filepick">
+            <span class="filepick-button">Choose files</span>
+            <input
+              type="file"
+              class="visually-hidden"
+              data-file
+              multiple
+              accept=".pdf,.md,.markdown,.txt"
+            />
+          </label>
+          <p class="warn">
+            Whatever you upload here can be quoted to anyone who uses the widget on your
+            site. Do not add documents you would not hand to a visitor.
+          </p>
+        </div>
+        <p class="notice problem" data-upload-problem hidden></p>
+        <p class="notice" data-worker-note hidden></p>
+        <ul class="galleys" data-galleys></ul>
+        <p class="empty" data-galleys-empty hidden>
+          Nothing uploaded yet. The bot will refuse to answer until it has something to
+          read.
+        </p>
+      </div>
+
+      <div class="section">
+        <h3>Providers</h3>
+        <form class="stack" data-provider-form>
+          <div class="field-row">
+            <label>
+              Chat model
+              <input type="text" name="llm_model" placeholder="mistral-small-latest" />
+            </label>
+            <label>
+              Chat API key
+              <input type="password" name="llm_api_key" data-key-field="llm" />
+              <span class="hint" data-key-state="llm"></span>
+            </label>
+          </div>
+          <div class="field-row">
+            <label>
+              Embedding model
+              <input type="text" name="embedding_model" placeholder="mistral-embed" />
+            </label>
+            <label>
+              Embedding API key
+              <input type="password" name="embedding_api_key" data-key-field="embedding" />
+              <span class="hint" data-key-state="embedding"></span>
+            </label>
+          </div>
+          <p class="empty" data-embedding-lock hidden>
+            The embedding model is fixed once a document exists: old and new documents would
+            no longer be comparable. You can still replace the key. To change the model,
+            create a new bot and upload the documents again.
+          </p>
+          <p class="notice problem" data-provider-problem hidden></p>
+          <p class="notice" data-provider-result hidden></p>
+          <div class="actions">
+            <button type="submit" class="primary">Save providers</button>
+            <button type="button" class="quiet" data-test-provider>Test connection</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="section">
+        <h3>Conversations</h3>
+        <ul class="galleys" data-conversations></ul>
+        <p class="empty" data-conversations-empty hidden>
+          No one has asked anything yet.
+        </p>
+        <div class="actions" data-conversation-pager hidden>
+          <button type="button" class="quiet" data-conversations-more>Show older</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>This bot</h3>
+        <div class="actions">
+          <button type="button" class="quiet danger" data-delete-bot>
+            Delete this bot and its documents
+          </button>
+        </div>
+      </div>
+    </template>
+
+    <template id="tpl-galley">
+      <li class="galley">
+        <div class="slug">
+          <span data-filename></span>
+          <span class="meta" data-meta></span>
+        </div>
+        <p class="state" data-state></p>
+        <div class="measure" data-measure hidden>
+          <span class="bar"><i data-fill></i></span>
+          <span data-extent></span>
+        </div>
+        <div class="actions" data-actions></div>
+        <details class="technical" data-technical hidden>
+          <summary>Technical detail</summary>
+          <dl data-technical-body></dl>
+        </details>
+      </li>
+    </template>
+
+    <template id="tpl-new-bot">
+      <h2>New bot</h2>
+      <p>
+        A bot is one set of documents and one script tag. Most instances need one; create
+        another when the documents should not be mixed.
+      </p>
+      <form class="stack" data-new-bot-form>
+        <label>
+          Name
+          <input type="text" name="name" required placeholder="Support" />
+        </label>
+        <label>
+          Where the widget may run
+          <span class="hint">
+            One origin per line, exactly as the browser sends it, e.g.
+            https://example.com. A page on any other origin is refused.
+          </span>
+          <textarea name="origins" rows="3"></textarea>
+        </label>
+        <p class="notice problem" data-new-bot-problem hidden></p>
+        <div class="actions">
+          <button type="submit" class="primary">Create bot</button>
+          <button type="button" class="quiet" data-cancel>Cancel</button>
+        </div>
+      </form>
+    </template>
+
+    <div aria-live="polite" class="visually-hidden" id="announce"></div>
+    <script src="./app.js"></script>
+  </body>
+</html>

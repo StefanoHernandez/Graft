@@ -31,7 +31,7 @@ from ..config import get_settings
 from ..db import get_session
 from ..ingestion.queue import enqueue_document
 from ..ingestion.storage import delete_bot_sources, delete_source, save_source
-from ..models import Bot, Chunk, Document
+from ..models import Bot, Chunk, Conversation, Document, Message
 from ..providers.base import ProviderError
 from ..providers.config import EmbeddingConfig, LLMConfig
 from ..providers.factory import build_embedder, build_llm
@@ -42,7 +42,10 @@ from .schemas import (
     BotCreate,
     BotOut,
     BotUpdate,
+    ConversationDetail,
+    ConversationOut,
     DocumentOut,
+    MessageOut,
     Page,
     ProviderCheck,
     ProviderConfigIn,
@@ -402,6 +405,99 @@ async def delete_document(
         _remove_files(
             lambda: delete_source(get_settings().storage_root, storage_key), document_id
         )
+
+
+@router.get("/bots/{bot_id}/conversations", response_model=Page[ConversationOut])
+async def list_conversations(
+    bot_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),  # noqa: B008
+    offset: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+) -> Page[ConversationOut]:
+    await _get_bot(session, bot_id)
+    total = await session.scalar(
+        select(func.count()).select_from(Conversation).where(Conversation.bot_id == bot_id)
+    )
+    counts = (
+        select(
+            Message.conversation_id.label("conversation_id"),
+            func.count().label("message_count"),
+            func.max(Message.created_at).label("last_activity_at"),
+        )
+        .group_by(Message.conversation_id)
+        .subquery()
+    )
+    rows = (
+        await session.execute(
+            select(Conversation, counts.c.message_count, counts.c.last_activity_at)
+            .outerjoin(counts, counts.c.conversation_id == Conversation.id)
+            .where(Conversation.bot_id == bot_id)
+            .order_by(Conversation.started_at.desc(), Conversation.id)
+            .offset(offset)
+            .limit(limit)
+        )
+    ).all()
+    return Page(
+        items=[
+            ConversationOut(
+                id=row.Conversation.id,
+                label=_conversation_label(row.Conversation),
+                started_at=row.Conversation.started_at,
+                message_count=row.message_count or 0,
+                last_activity_at=row.last_activity_at,
+            )
+            for row in rows
+        ],
+        total=total or 0,
+    )
+
+
+@router.get("/conversations/{conversation_id}", response_model=ConversationDetail)
+async def read_conversation(
+    conversation_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),  # noqa: B008
+) -> ConversationDetail:
+    conversation = await session.get(Conversation, conversation_id)
+    if conversation is None:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail={"code": "conversation_not_found"}
+        )
+    # Reached through its bot, so a future viewer role inherits the bot's rules
+    # rather than getting a second, looser path to the same transcript.
+    await _get_bot(session, conversation.bot_id)
+    messages = (
+        await session.execute(
+            select(Message)
+            .where(Message.conversation_id == conversation_id)
+            .order_by(Message.created_at, Message.id)
+        )
+    ).scalars().all()
+    return ConversationDetail(
+        id=conversation.id,
+        label=_conversation_label(conversation),
+        started_at=conversation.started_at,
+        messages=[
+            MessageOut(
+                id=message.id,
+                role=message.role,
+                content=message.content,
+                status=message.status,
+                citations=(message.citations or {}).get("items", []),
+                created_at=message.created_at,
+            )
+            for message in messages
+        ],
+    )
+
+
+def _conversation_label(conversation: Conversation) -> str:
+    """A short handle for the transcript.
+
+    Never the session id: that string is the visitor's capability to resume the
+    conversation on the public endpoint, and an owner does not need it to read
+    what was said.
+    """
+    return conversation.visitor_session[:8]
 
 
 def _remove_files(action, subject) -> None:

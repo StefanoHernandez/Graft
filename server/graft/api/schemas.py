@@ -93,3 +93,29 @@ class ProviderCheck(BaseModel):
 class ProviderTestOut(BaseModel):
     llm: ProviderCheck
     embedding: ProviderCheck
+
+
+class ConversationOut(BaseModel):
+    id: uuid.UUID
+    # A short label, never the session id itself: that id is the visitor's
+    # capability to resume their conversation on the public endpoint.
+    label: str
+    started_at: datetime
+    message_count: int
+    last_activity_at: datetime | None
+
+
+class MessageOut(BaseModel):
+    id: uuid.UUID
+    role: str
+    content: str
+    status: str
+    citations: list[dict]
+    created_at: datetime
+
+
+class ConversationDetail(BaseModel):
+    id: uuid.UUID
+    label: str
+    started_at: datetime
+    messages: list[MessageOut]

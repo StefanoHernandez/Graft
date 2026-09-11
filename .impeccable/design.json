@@ -1,0 +1,140 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-11T12:02:47Z",
+  "title": "Design System: Graft",
+  "extensions": {
+    "colorMeta": {
+      "desk": {
+        "role": "primary",
+        "displayName": "Working Blue",
+        "canonical": "oklch(0.52 0.098 238)",
+        "tonalRamp": ["oklch(0.38 0.082 240)", "oklch(0.52 0.098 238)", "oklch(0.60 0.085 238)", "oklch(0.955 0.02 240)", "oklch(0.97 0.012 240)"]
+      },
+      "sheet": {
+        "role": "neutral",
+        "displayName": "Proof Paper",
+        "canonical": "oklch(0.985 0.006 85)",
+        "tonalRamp": ["oklch(0.985 0.006 85)", "oklch(0.955 0.011 85)", "oklch(0.87 0.008 85)", "oklch(0.72 0.012 85)"]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "oklch(0.24 0.012 250)",
+        "tonalRamp": ["oklch(0.24 0.012 250)", "oklch(0.34 0.02 250)", "oklch(0.47 0.014 250)"]
+      },
+      "pencil": {
+        "role": "secondary",
+        "displayName": "Blue Pencil",
+        "canonical": "oklch(0.52 0.115 243)",
+        "tonalRamp": []
+      },
+      "correction": {
+        "role": "tertiary",
+        "displayName": "Correction Red",
+        "canonical": "oklch(0.50 0.185 27)",
+        "tonalRamp": []
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Bot name", "purpose": "The only large type on the screen. One per view." },
+      "title": { "displayName": "Filename", "purpose": "A document's slug line." },
+      "label": { "displayName": "Section heading", "purpose": "Uppercase tracked heading. It IS the heading, never a kicker above one." },
+      "data": { "displayName": "Data mono", "purpose": "Real data only: metadata, counts, codes, the embed snippet, citations." }
+    },
+    "shadows": [
+      { "name": "sheet", "value": "0 6px 18px oklch(0.2 0.06 240 / 22%)", "purpose": "The one shadow in the system: a sheet lying on the desk." }
+    ],
+    "motion": [
+      { "name": "ease", "value": "cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Exponential ease-out for every state transition, 150ms." },
+      { "name": "strike", "value": "clip-path inset(0 100% 0 0) to inset(0 0 0 0) over 180ms", "purpose": "The one authored moment: a galley marked set when a document becomes ready." }
+    ],
+    "breakpoints": [{ "name": "narrow", "value": "860px" }]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The single committing action in a section.",
+      "html": "<button class=\"ds-btn-primary\">Save providers</button>",
+      "css": ".ds-btn-primary { background: oklch(0.24 0.012 250); color: oklch(0.985 0.006 85); font: 600 0.9375rem/1.55 ui-sans-serif, system-ui, sans-serif; padding: 0.5rem 1rem; border: 0; border-radius: 2px; cursor: pointer; transition: background 150ms cubic-bezier(0.16,1,0.3,1); } .ds-btn-primary:hover { background: oklch(0.34 0.02 250); } .ds-btn-primary:focus-visible { outline: 2px solid oklch(0.52 0.115 243); outline-offset: 2px; } .ds-btn-primary:disabled { background: oklch(0.72 0.012 85); cursor: default; }"
+    },
+    {
+      "name": "Quiet Button",
+      "kind": "button",
+      "refersTo": "button-quiet",
+      "description": "Secondary action. The destructive variant is dashed, never red.",
+      "html": "<button class=\"ds-btn-quiet\">Try again</button> <button class=\"ds-btn-quiet ds-danger\">Remove</button>",
+      "css": ".ds-btn-quiet { background: none; border: 0; border-bottom: 1px solid oklch(0.72 0.012 85); color: oklch(0.24 0.012 250); font: 0.9375rem/1.55 ui-sans-serif, system-ui, sans-serif; padding: 0.35rem 0; cursor: pointer; transition: border-color 150ms cubic-bezier(0.16,1,0.3,1); } .ds-btn-quiet:hover { border-bottom-color: oklch(0.24 0.012 250); } .ds-btn-quiet.ds-danger { border-bottom-style: dashed; } .ds-btn-quiet:focus-visible { outline: 2px solid oklch(0.52 0.115 243); outline-offset: 2px; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input-text",
+      "description": "Every field in the system. The caret is pencil blue.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"mistral-embed\" />",
+      "css": ".ds-input { width: 100%; padding: 0.45rem 0.55rem; border: 1px solid oklch(0.72 0.012 85); border-radius: 2px; background: oklch(0.985 0.006 85); color: oklch(0.24 0.012 250); font: 0.9375rem/1.55 ui-sans-serif, system-ui, sans-serif; caret-color: oklch(0.52 0.115 243); } .ds-input::placeholder { color: oklch(0.52 0.012 250); } .ds-input:focus-visible { border-color: oklch(0.52 0.115 243); outline: 2px solid oklch(0.52 0.115 243); outline-offset: 2px; }"
+    },
+    {
+      "name": "Galley (ready)",
+      "kind": "custom",
+      "refersTo": "sheet",
+      "description": "One document. State is a sentence in the flow; capacity is a measure, not a warning.",
+      "html": "<div class=\"ds-galley\"><div class=\"ds-slug\"><span class=\"ds-file\">installation.md</span><span class=\"ds-meta\">Markdown &middot; added Sep 11, 2026, 12:08 PM</span></div><p class=\"ds-state\"><strong>Ready to answer.</strong> 3 passages can be quoted.</p><div class=\"ds-measure\"><span class=\"ds-bar\"><i style=\"width:0.4%\"></i></span><span>3 of 2000 passages used</span></div></div>",
+      "css": ".ds-galley { padding: 0.9rem 0 0.9rem 1.1rem; border-top: 1px solid oklch(0.87 0.008 85); border-left: 1px solid transparent; background: oklch(0.985 0.006 85); font-family: ui-sans-serif, system-ui, sans-serif; color: oklch(0.24 0.012 250); } .ds-slug { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.5rem; font-weight: 600; } .ds-file { font-size: 1.0625rem; } .ds-meta { font: 0.75rem/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 400; color: oklch(0.47 0.014 250); } .ds-state { margin: 0.2rem 0 0; color: oklch(0.47 0.014 250); } .ds-state strong { color: oklch(0.24 0.012 250); font-weight: 600; } .ds-measure { margin-top: 0.5rem; display: grid; grid-template-columns: minmax(0,14rem) auto; gap: 0.5rem; align-items: center; font: 0.75rem ui-monospace, Menlo, monospace; color: oklch(0.47 0.014 250); } .ds-bar { height: 3px; background: oklch(0.87 0.008 85); } .ds-bar i { display: block; height: 100%; background: oklch(0.52 0.115 243); }"
+    },
+    {
+      "name": "Galley (failed)",
+      "kind": "custom",
+      "refersTo": "sheet",
+      "description": "The only place the alarm colour appears: a marginal rule and the state headline.",
+      "html": "<div class=\"ds-galley ds-failed\"><div class=\"ds-slug\"><span class=\"ds-file\">no_text.pdf</span><span class=\"ds-meta\">PDF &middot; added Sep 11, 2026, 1:40 PM</span></div><p class=\"ds-state\"><strong>Could not be used.</strong> No text could be read from this file. A scanned PDF is a picture of a page, not text &mdash; re-upload a version with selectable text.</p></div>",
+      "css": ".ds-galley.ds-failed { border-left-color: oklch(0.50 0.185 27); } .ds-galley.ds-failed .ds-state strong { color: oklch(0.50 0.185 27); }"
+    },
+    {
+      "name": "Rail item",
+      "kind": "nav",
+      "refersTo": "rail-item",
+      "description": "A bot as a plain ruled line. The current one is a sheet pulled onto the rail.",
+      "html": "<div class=\"ds-rail\"><button class=\"ds-rail-item ds-current\">eval-67988879<span class=\"ds-sub\">mistral-embed</span></button><button class=\"ds-rail-item\">Northwind support<span class=\"ds-sub\">stub-embed</span></button></div>",
+      "css": ".ds-rail { background: oklch(0.52 0.098 238); padding: 0.5rem; } .ds-rail-item { display: block; width: 100%; text-align: left; padding: 0.55rem 0.6rem; border: 0; background: none; color: oklch(0.97 0.012 240); font: 0.9375rem/1.55 ui-sans-serif, system-ui, sans-serif; cursor: pointer; transition: background 150ms cubic-bezier(0.16,1,0.3,1); } .ds-rail-item + .ds-rail-item { border-top: 1px solid oklch(0.60 0.085 238); } .ds-rail-item:hover { background: oklch(0.46 0.09 239); } .ds-rail-item.ds-current { background: oklch(0.985 0.006 85); color: oklch(0.24 0.012 250); font-weight: 600; } .ds-sub { display: block; font-size: 0.75rem; color: oklch(0.955 0.02 240); } .ds-rail-item.ds-current .ds-sub { color: oklch(0.47 0.014 250); }"
+    },
+    {
+      "name": "Technical disclosure",
+      "kind": "custom",
+      "refersTo": "sheet",
+      "description": "The exact code, one click from the plain sentence. The marker is drawn, not the browser's.",
+      "html": "<details class=\"ds-tech\"><summary>Technical detail</summary><dl><dt>status</dt><dd>failed</dd><dt>code</dt><dd>no_extractable_text</dd></dl></details>",
+      "css": ".ds-tech { font-family: ui-sans-serif, system-ui, sans-serif; } .ds-tech summary { font-size: 0.75rem; color: oklch(0.47 0.014 250); cursor: pointer; width: max-content; list-style: none; } .ds-tech summary::-webkit-details-marker { display: none; } .ds-tech summary::before { content: ''; display: inline-block; width: 0.5rem; height: 1px; margin-right: 0.45rem; vertical-align: middle; background: oklch(0.52 0.115 243); transition: width 150ms cubic-bezier(0.16,1,0.3,1); } .ds-tech[open] summary::before { width: 1rem; } .ds-tech dl { margin: 0.4rem 0 0; display: grid; grid-template-columns: max-content minmax(0,1fr); gap: 0.15rem 0.9rem; font: 0.75rem ui-monospace, Menlo, monospace; color: oklch(0.47 0.014 250); } .ds-tech dt { font-weight: 600; } .ds-tech dd { margin: 0; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Copy Desk",
+    "overview": "Documents are galleys on a working desk, not rows in a table. A saturated working blue owns the page; documents sit on proof-paper sheets that carry every piece of copy at full contrast. The arrangement this system refuses is the SaaS admin - left nav, card grid, coloured status badges - because it hides the only thing the reader came for: whether a document has become answerable, and what to do when it has not. Graft is self-hosted per company, so this screen is the only manual its readers get.",
+    "keyCharacteristics": [
+      "Committed colour: the desk blue carries ~40% of the desktop viewport, as a field rather than an accent.",
+      "State is a sentence in the copy flow; the exact code is one disclosure away.",
+      "Exactly one alarm colour, spent only on a real failure.",
+      "No enclosure: rules, indentation and marginal marks group instead of cards and boxes.",
+      "One family of type; mono reserved for real data."
+    ],
+    "rules": [
+      { "name": "The One Alarm Rule", "section": "colors", "body": "Correction red appears only where something actually broke: a failed document's marginal rule and state headline, and problem notices. Destructive actions take a dashed underline in ink, because deleting on purpose is not a failure." },
+      { "name": "No Enclosure", "section": "elevation", "body": "Nothing is grouped by putting a container around it. Rules, indentation and marginal marks carry structure; the only boxes are form controls, which are affordances." },
+      { "name": "The Sheet Has Edges", "section": "elevation", "body": "The working sheet is capped at 54rem. Without the cap the desk collapses into trim and the committed colour strategy dies." },
+      { "name": "Translate, Don't Hide", "section": "typography", "body": "Plain language leads and the exact code is always reachable. Never remove the technical value; never let it lead." }
+    ],
+    "dos": [
+      "Do write every state as a sentence a non-technical reader understands.",
+      "Do give every failure a terminal state and a next action; stop polling and say so when nothing moves.",
+      "Do theme the browser's own surfaces: selection, caret, scrollbar, focus ring.",
+      "Do reserve mono for data that is actually data."
+    ],
+    "donts": [
+      "Don't add a second alarm colour, or spend the red on emphasis or delete buttons.",
+      "Don't reach for a card, box or divider to group something.",
+      "Don't add status badges, chips or pills - that is the arrangement this system exists to refuse.",
+      "Don't introduce a display face; Operate mode is served by one well-tuned sans."
+    ]
+  }
+}

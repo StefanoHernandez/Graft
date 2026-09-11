@@ -1,0 +1,455 @@
+/* The copy desk.
+   A saturated working blue owns the ground; documents sit on proof-paper sheets
+   that carry every piece of copy at full contrast. Nothing is enclosed in a card
+   or a box: rules, indentation and marginal marks do the grouping. One red
+   exists, and only a real failure may use it. */
+
+:root {
+  --desk: oklch(0.52 0.098 238);
+  --desk-deep: oklch(0.38 0.082 240);
+  --desk-line: oklch(0.60 0.085 238);
+  --desk-ink: oklch(0.97 0.012 240);
+
+  --sheet: oklch(0.985 0.006 85);
+  --sheet-inset: oklch(0.955 0.011 85);
+  --ink: oklch(0.24 0.012 250);
+  --ink-soft: oklch(0.47 0.014 250);
+  --rule: oklch(0.87 0.008 85);
+  --rule-strong: oklch(0.72 0.012 85);
+
+  /* Marks that guide the work and never alarm. */
+  --pencil: oklch(0.52 0.115 243);
+  /* The only alarm in the system. Nothing else may use it. */
+  --correction: oklch(0.50 0.185 27);
+
+  --step--2: 0.75rem;
+  --step--1: 0.8125rem;
+  --step-0: 0.9375rem;
+  --step-1: 1.0625rem;
+  --step-2: 1.3125rem;
+  --step-3: 1.75rem;
+
+  --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial,
+    sans-serif;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --z-rail: 10;
+  --z-masthead: 20;
+  --z-dialog: 40;
+
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--desk);
+  color: var(--ink);
+  font: var(--step-0)/1.55 var(--sans);
+  /* Tabular numerals everywhere: counts and sizes sit in columns. */
+  font-variant-numeric: tabular-nums;
+}
+
+/* Browser surfaces belong to the design too. */
+::selection { background: var(--pencil); color: var(--desk-ink); }
+:focus-visible {
+  outline: 2px solid var(--pencil);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+.desk ::selection { background: oklch(0.52 0.115 243 / 25%); color: var(--ink); }
+* { scrollbar-color: var(--rule-strong) transparent; scrollbar-width: thin; }
+.masthead *, .rail * { scrollbar-color: var(--desk-line) transparent; }
+
+a { color: var(--pencil); text-underline-offset: 0.2em; }
+
+/* --- masthead ------------------------------------------------------------ */
+
+.masthead {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-masthead);
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+  padding: 0.7rem 1.25rem;
+  background: var(--desk-deep);
+  color: var(--desk-ink);
+  border-bottom: 1px solid oklch(0.30 0.07 240);
+}
+.masthead h1 {
+  margin: 0;
+  font-size: var(--step-0);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.masthead .instance {
+  font-size: var(--step--1);
+  color: oklch(0.86 0.03 240);
+}
+.masthead .spacer { margin-left: auto; }
+/* The quiet button borrows ink by default, which is invisible up here. */
+.masthead .quiet { color: var(--desk-ink); border-bottom-color: oklch(0.70 0.06 240); }
+.masthead .quiet:hover { border-bottom-color: var(--desk-ink); }
+
+/* --- desk ---------------------------------------------------------------- */
+
+.desk {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+  padding: 1.5rem;
+  min-height: calc(100vh - 3rem);
+}
+
+.rail { position: sticky; top: 4.25rem; z-index: var(--z-rail); }
+.rail h2 {
+  margin: 0 0 0.5rem;
+  font-size: var(--step--2);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: oklch(0.955 0.02 240);
+}
+.rail ul { margin: 0; padding: 0; list-style: none; }
+.rail li + li { border-top: 1px solid var(--desk-line); }
+.rail button {
+  display: block;
+  width: 100%;
+  padding: 0.55rem 0.6rem;
+  border: 0;
+  background: none;
+  color: var(--desk-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 150ms var(--ease);
+}
+.rail button:hover { background: oklch(0.46 0.09 239); }
+.rail button[aria-current="true"] {
+  /* The current bot is a sheet pulled onto the rail. */
+  background: var(--sheet);
+  color: var(--ink);
+  font-weight: 600;
+}
+.rail .count {
+  display: block;
+  font-size: var(--step--2);
+  /* 12px on the desk blue: it has to clear 4.5:1, not merely look subdued. */
+  color: oklch(0.955 0.02 240);
+}
+.rail button[aria-current="true"] .count { color: var(--ink-soft); }
+.rail .new {
+  margin-top: 0.75rem;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--desk-line);
+  background: none;
+  color: var(--desk-ink);
+  font: inherit;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 150ms var(--ease);
+}
+.rail .new:hover { border-color: var(--desk-ink); }
+
+/* --- sheets -------------------------------------------------------------- */
+
+.sheet {
+  /* A sheet has edges. Capping it is what lets the desk read as a field rather
+     than as the margin left over around a panel. */
+  max-width: 54rem;
+  background: var(--sheet);
+  padding: 2rem 2.25rem 2.5rem;
+  box-shadow: 0 6px 18px oklch(0.2 0.06 240 / 22%);
+}
+.sheet > * + * { margin-top: 1.5rem; }
+
+.sheet h2 {
+  margin: 0;
+  font-size: var(--step-3);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+.sheet h3 {
+  margin: 0 0 0.35rem;
+  font-size: var(--step--2);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.sheet p { max-width: 68ch; text-wrap: pretty; }
+
+.section { border-top: 1px solid var(--rule); padding-top: 1.25rem; }
+
+/* --- the galley column --------------------------------------------------- */
+
+.galleys { margin: 0; padding: 0; list-style: none; }
+.galley {
+  padding: 0.9rem 0 0.9rem 1.1rem;
+  border-top: 1px solid var(--rule);
+  /* The marginal mark: a hairline that only the correction state colours. */
+  border-left: 1px solid transparent;
+}
+.galley:first-child { border-top: 0; }
+.galley[data-state="failed"] { border-left-color: var(--correction); }
+
+.slug [data-filename], .slug > span:first-child {
+  font-size: var(--step-1);
+}
+.slug {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-weight: 600;
+}
+.slug .meta {
+  font: var(--step--2)/1.4 var(--mono);
+  font-weight: 400;
+  color: var(--ink-soft);
+  letter-spacing: 0.01em;
+}
+
+/* State is printed in the copy flow, never as a badge. */
+.state { margin: 0.2rem 0 0; color: var(--ink-soft); }
+.state strong { color: var(--ink); font-weight: 600; }
+.galley[data-state="failed"] .state strong { color: var(--correction); }
+.state .struck {
+  display: inline-block;
+  animation: strike 180ms var(--ease) both;
+}
+@keyframes strike {
+  from { clip-path: inset(0 100% 0 0); }
+  to { clip-path: inset(0 0 0 0); }
+}
+
+.measure {
+  margin-top: 0.5rem;
+  display: grid;
+  grid-template-columns: minmax(0, 14rem) auto;
+  gap: 0.5rem;
+  align-items: center;
+  font: var(--step--2) var(--mono);
+  color: var(--ink-soft);
+}
+.measure .bar { height: 3px; background: var(--rule); }
+.measure .bar i { display: block; height: 100%; background: var(--pencil); }
+.galley[data-state="failed"] .measure .bar i { background: var(--correction); }
+
+.actions { margin-top: 0.6rem; display: flex; flex-wrap: wrap; gap: 0.75rem; }
+
+details.technical { margin-top: 0.5rem; }
+details.technical summary {
+  font-size: var(--step--2);
+  color: var(--ink-soft);
+  cursor: pointer;
+  width: max-content;
+  list-style: none;
+}
+details.technical summary::-webkit-details-marker { display: none; }
+/* A marginal mark that extends when the note opens, rather than the browser's
+   own triangle — the only glyph left on a page that drew everything else. */
+details.technical summary::before {
+  content: "";
+  display: inline-block;
+  width: 0.5rem;
+  height: 1px;
+  margin-right: 0.45rem;
+  vertical-align: middle;
+  background: var(--pencil);
+  transition: width 150ms var(--ease);
+}
+details.technical[open] summary::before { width: 1rem; }
+details.technical dl {
+  margin: 0.4rem 0 0;
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 0.15rem 0.9rem;
+  font: var(--step--2) var(--mono);
+  color: var(--ink-soft);
+}
+details.technical dt { font-weight: 600; }
+details.technical dd { margin: 0; overflow-wrap: anywhere; }
+
+/* --- controls ------------------------------------------------------------ */
+
+button, .button {
+  font: inherit;
+  cursor: pointer;
+  border-radius: 2px;
+}
+.primary {
+  padding: 0.5rem 1rem;
+  border: 0;
+  background: var(--ink);
+  color: var(--sheet);
+  font-weight: 600;
+  transition: background 150ms var(--ease);
+}
+.primary:hover { background: oklch(0.34 0.02 250); }
+.primary:disabled { background: var(--rule-strong); color: var(--sheet); cursor: default; }
+
+.quiet {
+  padding: 0.35rem 0;
+  border: 0;
+  border-bottom: 1px solid var(--rule-strong);
+  background: none;
+  color: var(--ink);
+  transition: border-color 150ms var(--ease);
+}
+.quiet:hover { border-bottom-color: var(--ink); }
+/* Destructive, not failed. The single alarm colour belongs to a document that
+   actually broke; a delete action earns a different underline, not the red. */
+.quiet.danger { border-bottom-style: dashed; }
+.quiet.danger:hover { border-bottom-color: var(--ink); }
+.quiet:disabled { color: var(--ink-soft); cursor: default; border-bottom-color: var(--rule); }
+
+label { display: block; font-size: var(--step--1); font-weight: 600; }
+label .hint { display: block; font-weight: 400; color: var(--ink-soft); }
+input[type="text"], input[type="email"], input[type="password"], input[type="url"],
+select, textarea {
+  width: 100%;
+  margin-top: 0.3rem;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid var(--rule-strong);
+  border-radius: 2px;
+  background: var(--sheet);
+  color: var(--ink);
+  font: inherit;
+  caret-color: var(--pencil);
+}
+input::placeholder { color: oklch(0.52 0.012 250); }
+input:focus-visible, select:focus-visible, textarea:focus-visible { border-color: var(--pencil); }
+textarea { resize: vertical; font: var(--step--1)/1.5 var(--mono); }
+
+
+.field-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+.stack > * + * { margin-top: 0.9rem; }
+
+/* --- the embed snippet --------------------------------------------------- */
+
+.snippet {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1rem;
+  align-items: start;
+  padding: 0.9rem 1rem;
+  background: var(--sheet-inset);
+}
+.snippet code {
+  font: var(--step--1)/1.5 var(--mono);
+  overflow-wrap: anywhere;
+}
+
+/* --- upload -------------------------------------------------------------- */
+
+.drop {
+  padding: 1.1rem 0;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+.drop.over { background: var(--sheet-inset); }
+.drop .warn { color: var(--ink-soft); font-size: var(--step--1); max-width: 62ch; }
+.drop-title { margin: 0; font-size: var(--step--1); font-weight: 600; }
+.drop .hint { margin: 0.15rem 0 0.7rem; color: var(--ink-soft); font-size: var(--step--1); }
+
+/* The native file control ships in the browser's language and its own look;
+   the label carries the affordance instead, and the input stays focusable. */
+.filepick { display: inline-block; }
+.filepick-button {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  background: var(--ink);
+  color: var(--sheet);
+  font-size: var(--step--1);
+  font-weight: 600;
+  border-radius: 2px;
+  transition: background 150ms var(--ease);
+}
+.filepick:hover .filepick-button { background: oklch(0.34 0.02 250); }
+.filepick:focus-within .filepick-button { outline: 2px solid var(--pencil); outline-offset: 2px; }
+.filepick .chosen { margin-left: 0.6rem; font-size: var(--step--1); color: var(--ink-soft); }
+
+/* --- notices ------------------------------------------------------------- */
+
+.notice { padding-left: 1.1rem; border-left: 1px solid var(--pencil); }
+.notice.problem { border-left-color: var(--correction); color: var(--correction); }
+
+.empty { color: var(--ink-soft); max-width: 60ch; }
+
+/* --- transcripts --------------------------------------------------------- */
+
+.turns { margin: 0; padding: 0; list-style: none; }
+.turns li { padding: 0.7rem 0; border-top: 1px solid var(--rule); }
+.turns .who {
+  font-size: var(--step--2);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.turns .said { margin: 0.2rem 0 0; white-space: pre-wrap; max-width: 68ch; }
+.turns .cited { margin-top: 0.35rem; font: var(--step--2) var(--mono); color: var(--ink-soft); }
+
+/* --- sign in ------------------------------------------------------------- */
+
+.signin { display: grid; place-items: center; min-height: calc(100vh - 3rem); padding: 1.5rem; }
+.signin .sheet { width: min(30rem, 100%); }
+
+/* --- responsive ---------------------------------------------------------- */
+
+@media (max-width: 860px) {
+  .desk { grid-template-columns: minmax(0, 1fr); padding: 1rem; gap: 1rem; }
+  .rail { position: static; }
+  /* One line that scrolls, so the documents start inside the first viewport —
+     and still ruled names rather than boxes. */
+  .rail ul {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    /* The strip clips at the edge; the fade is what says there is more. */
+    mask-image: linear-gradient(to right, #000 calc(100% - 2rem), transparent);
+    scroll-snap-type: x proximity;
+  }
+  .rail li { flex: 0 0 auto; scroll-snap-align: start; }
+  .rail li + li { border-top: 0; border-left: 1px solid var(--desk-line); }
+  .rail button { width: auto; white-space: nowrap; padding: 0.45rem 0.75rem; }
+  /* Five bots named by hex suffix are told apart by their model, so the label
+     moves onto the line instead of disappearing. */
+  .rail .count { display: inline; margin-left: 0.45rem; }
+  .rail .new { margin-top: 0.5rem; width: auto; }
+  .sheet h2 { font-size: var(--step-2); }
+  .sheet { padding: 1.25rem 1.1rem 1.75rem; }
+  .snippet { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
+  }
+}
+
+[hidden] { display: none !important; }
+.visually-hidden {
+  position: absolute;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0; border: 0;
+  clip-path: inset(50%);
+  overflow: hidden;
+  white-space: nowrap;
+}

@@ -54,10 +54,13 @@ def create_app() -> FastAPI:
     app.include_router(admin.router)
     app.include_router(chat.router)
     _mount_widget(app)
+    # html=True serves index.html at /admin/, so the single-page admin has one URL.
+    app.mount("/admin", StaticFiles(directory=ADMIN_DIR, html=True), name="admin")
     return app
 
 
 WIDGET_DIST = Path(__file__).resolve().parents[2] / "widget" / "dist"
+ADMIN_DIR = Path(__file__).resolve().parent / "static" / "admin"
 
 
 def _mount_widget(app: FastAPI) -> None:
