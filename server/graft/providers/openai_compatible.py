@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 from collections.abc import AsyncIterator, Sequence
 
 from openai import AsyncOpenAI
@@ -32,6 +33,7 @@ class OpenAICompatibleLLM:
         # The try spans the whole stream: a provider can fail on the first call or
         # halfway through the tokens. CancelledError/GeneratorExit are BaseException,
         # so a disconnected visitor still cancels instead of looking like an outage.
+        stream = None
         try:
             stream = await self._client.chat.completions.create(**kwargs)
             async for chunk in stream:
@@ -42,6 +44,14 @@ class OpenAICompatibleLLM:
                     yield delta
         except Exception as exc:
             raise provider_error(exc) from exc
+        finally:
+            # Closing the response is not optional. Left to the garbage collector
+            # it is thrown a GeneratorExit at an arbitrary moment, which surfaces
+            # as "generator didn't stop after athrow()" from the HTTP layer and
+            # holds the connection until then — on every single chat request.
+            if stream is not None:
+                with contextlib.suppress(Exception):
+                    await stream.close()
 
     async def test_connection(self) -> None:
         try:

@@ -105,6 +105,29 @@ carry forward:
 - The first run burned ~100 calls in a few minutes through SDK retries. The script now
   paces itself (`--pause`, default 3s) and exposes `--max-retries`.
 
+## Provider probes — 2026-09-11
+
+Each provider exercised through Graft's own adapters (a real embedding and a real
+streamed chat), not through `curl`, so the result says something about this code and not
+only about the endpoint.
+
+| Provider | Embeddings | Chat | Notes |
+|---|---|---|---|
+| `mistral` | `mistral-embed` ✅ | `ministral-8b-latest` ✅ | `mistral-small-latest` returned 429 on every call with a free key, including a bare one-token request. Free-tier availability is **per model** |
+| `openai_compatible` | `text-embedding-3-small` ✅ 1536-dim, 2.5s | `gpt-4o-mini` ✅ 4.2s | |
+| `google` | `gemini-embedding-001` ✅ 3072-dim, 0.7s | `gemini-2.5-flash` ✅ 0.6s | Model ids work with or without the `models/` prefix. `text-embedding-004` and `gemini-2.0-flash` are **gone** from that endpoint — ask it for `/models` rather than trusting a tutorial |
+| `anthropic` | none by design | not probed | No embedding API; the factory refuses it as `provider_config` |
+
+Three of six backends now have live evidence. Anthropic's chat path and a local
+OpenAI-compatible runtime (Ollama, LM Studio) remain unverified.
+
+**A defect these probes found:** the OpenAI-compatible adapter never closed its response
+stream. Left to the garbage collector it surfaced as `generator didn't stop after
+athrow()` from the HTTP layer and held the connection until then — on every chat request,
+and worst on the early-disconnect path the chat endpoint depends on. Fixed, with a
+regression test that asserts the stream is closed both after a full read and after the
+reader walks away.
+
 ## What this does not show
 
 - One provider, one chat model, one 13-chunk corpus. Nothing here transfers to a real

@@ -129,3 +129,53 @@ async def test_embed_returns_index_ordered_vectors():
     )
     emb = OpenAICompatibleEmbedder(client)
     assert await emb.embed(["a", "b"], model="e") == [[8.0], [9.0]]
+
+
+class _ClosableStream:
+    """Mimics the SDK's response stream, and remembers whether it was closed."""
+
+    def __init__(self, chunks):
+        self._chunks = chunks
+        self.closed = False
+
+    def __aiter__(self):
+        async def _gen():
+            for chunk in self._chunks:
+                yield chunk
+        return _gen()
+
+    async def close(self):
+        self.closed = True
+
+
+class _StreamingCompletions:
+    def __init__(self, stream):
+        self.stream = stream
+
+    async def create(self, **kwargs):
+        return self.stream
+
+
+def _client_with(stream):
+    return SimpleNamespace(chat=SimpleNamespace(completions=_StreamingCompletions(stream)))
+
+
+async def test_the_response_stream_is_closed_after_a_full_read():
+    stream = _ClosableStream([_chunk("hi"), _chunk(" there")])
+    llm = OpenAICompatibleLLM(_client_with(stream))
+    assert [d async for d in llm.stream_chat([], model="m")] == ["hi", " there"]
+    assert stream.closed is True
+
+
+async def test_the_response_stream_is_closed_when_the_reader_walks_away():
+    """A visitor who closes the tab must not leave an HTTP response open.
+
+    Left to the garbage collector this surfaces later as "generator didn't stop
+    after athrow()" from the HTTP layer, and holds the connection until then.
+    """
+    stream = _ClosableStream([_chunk("one"), _chunk("two"), _chunk("three")])
+    llm = OpenAICompatibleLLM(_client_with(stream))
+    answer = llm.stream_chat([], model="m")
+    assert await anext(answer) == "one"
+    await answer.aclose()
+    assert stream.closed is True
