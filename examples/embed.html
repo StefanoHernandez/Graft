@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Graft widget — host page</title>
+    <style>
+      /* Deliberately aggressive: the widget must survive a page that resets
+         everything and styles every button. */
+      * { margin: 0; padding: 0; }
+      body { font: 16px/1.6 Georgia, serif; background: #faf7f2; color: #2b2b2b;
+             padding: 48px 24px; }
+      main { max-width: 640px; margin: 0 auto; }
+      button { background: hotpink !important; border: 4px dashed purple; font-size: 22px; }
+      h1 { font-size: 28px; margin-bottom: 16px; }
+      p { margin-bottom: 12px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Northwind support</h1>
+      <p>
+        This page is not served by Graft. It only carries the one script tag below,
+        which is the whole integration.
+      </p>
+      <p><button type="button">A host page button, styled loudly on purpose</button></p>
+    </main>
+
+    <!-- The integration, in full: -->
+    <script
+      src="http://localhost:8000/widget/graft.js"
+      data-graft-bot="REPLACE_WITH_WIDGET_KEY"
+      data-graft-title="Ask about the docs"
+    ></script>
+  </body>
+</html>

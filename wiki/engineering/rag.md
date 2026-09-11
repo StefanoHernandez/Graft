@@ -2,7 +2,7 @@
 title: Retrieval and RAG
 updated: 2026-09-11
 sources: [server/graft/rag/*.py, server/tests/integration/test_retrieval.py, server/tests/fixtures/rag/*]
-source_commit: 140633f
+source_commit: c7c4ee3
 confidence: high
 ---
 
@@ -121,6 +121,49 @@ stream starts, a failure is a final `error` frame with no `done`.
 
 The app-wide CORS middleware no longer falls back to `*`: it is only mounted when
 `CORS_ORIGINS` is set, for an admin UI on another origin.
+
+## Widget (`widget/`)
+
+One script tag is the whole integration:
+
+```html
+<script src="https://your-graft-host/widget/graft.js" data-graft-bot="WIDGET_KEY"></script>
+```
+
+- **No runtime dependencies.** Source is TypeScript, bundled by esbuild into a single
+  ~7 kB IIFE; `npm test` runs the parser tests on Node's own test runner. Dev toolchain:
+  esbuild and typescript, both pinned.
+- **Shadow DOM with `all: initial` on the host.** The page it lands on has opinions about
+  what a `button` looks like; `examples/embed.html` styles every button hot pink on
+  purpose, and the widget is unaffected.
+- **`textContent` everywhere, never `innerHTML`.** The answer quotes documents that
+  strangers uploaded.
+- **The backend is derived from the script's own URL**, so a host page never repeats the
+  origin. `document.currentScript` is read at load time, before anything async can null it.
+- **The SSE parser is incremental**: chunk boundaries land mid-frame and mid-character, so
+  bytes go through a streaming decoder and a frame is only emitted on its blank line. It
+  handles CRLF, `:` comments (the heartbeat) and multiple `data:` lines. Tested by
+  splitting a body at **every byte offset**, including inside multi-byte characters.
+- **Session id lives in memory only** — never localStorage, never a cookie.
+- Closing the panel aborts the request in flight but keeps the conversation; Escape closes
+  and returns focus to the launcher; the log is `aria-live="polite"` so a streaming answer
+  does not interrupt a screen-reader user mid-sentence.
+- Error **codes** are mapped to our own wording, so an internal message never reaches a
+  visitor.
+
+### Verified on a real host page (2026-09-11)
+
+Backend on `:8000`, demo page served from `:8080` (a different origin, not served by
+Graft), documents ingested by the real worker. Asking *"Which port does the setup
+assistant need?"* streamed back **"Port 8443 must be reachable on the local network
+[S1]."** with an expandable source reading **`S1 · installation.md · Requirements`** and
+the matching excerpt — provenance carried from the Markdown parser all the way into the
+widget. The host page's `button { background: hotpink !important }` did not reach inside
+the shadow root.
+
+Providers were a local OpenAI-compatible **stub** for this run: it proves the transport,
+the citation path and the isolation, and says nothing about answer quality. That is
+task 11.
 
 ## Evaluation corpus (`tests/fixtures/rag/`)
 

@@ -1,9 +1,11 @@
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from arq.connections import RedisSettings, create_pool
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from .api import admin, chat, health
 from .config import get_settings
@@ -51,7 +53,24 @@ def create_app() -> FastAPI:
     )
     app.include_router(admin.router)
     app.include_router(chat.router)
+    _mount_widget(app)
     return app
+
+
+WIDGET_DIST = Path(__file__).resolve().parents[2] / "widget" / "dist"
+
+
+def _mount_widget(app: FastAPI) -> None:
+    """Serve the built widget, when it has been built.
+
+    Absent in a fresh checkout until `npm run build` runs, and mounting a missing
+    directory would fail the whole app — a backend that refuses to start because
+    a frontend asset is missing is a bad trade.
+    """
+    if WIDGET_DIST.is_dir():
+        app.mount("/widget", StaticFiles(directory=WIDGET_DIST), name="widget")
+    else:
+        logger.info("widget bundle not found at %s; /widget is not served", WIDGET_DIST)
 
 
 app = create_app()
