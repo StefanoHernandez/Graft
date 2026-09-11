@@ -8,7 +8,10 @@
     "build": "esbuild src/index.ts --bundle --format=iife --target=es2019 --minify --outfile=dist/graft.js",
     "typecheck": "tsc --noEmit",
     "pretest": "esbuild tests/*.test.ts --bundle --format=esm --platform=node --outdir=.test-build",
-    "test": "node --test .test-build/"
+    "test": "node --test \".test-build/*.test.js\""
+  },
+  "engines": {
+    "node": ">=22"
   },
   "devDependencies": {
     "esbuild": "0.25.10",

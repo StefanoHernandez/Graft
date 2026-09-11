@@ -2,24 +2,26 @@
 title: Project status
 updated: 2026-09-11
 sources: [docs/superpowers/plans/2026-09-10-graft-redesign-plan.md, git log]
-source_commit: 09b4e57
+source_commit: 5239138
 confidence: high
 ---
 
 # Project status
 
-**As of 2026-09-11, branch `feat/graft-redesign-a` — increments A and B complete (tasks 0–11).**
+**As of 2026-09-11, branch `feat/graft-redesign-a` — increments A, B and C complete (tasks 0–14).**
 
 The [redesign plan](../../docs/superpowers/plans/2026-09-10-graft-redesign-plan.md)
 replaces the old phase numbering with tasks in three gated increments. Phases 1–3a are
 kept; tasks 0–4 corrected them.
 
-- 301 backend tests (unit tier runs with **no Docker**) plus 17 widget tests, 0 warnings,
+- 320 backend tests (160 unit run with **no Docker**) plus 17 widget tests, 0 warnings,
   ruff and tsc clean. 6 live tests are deselected unless a provider key is present.
 - **End to end works:** upload → durable storage → background ingestion → grounded answer
   with checkable citations, delivered to a widget on a page Graft does not serve.
-- Missing for a first release: the admin UI (task 12), reproducible deploy and restore
-  (13), CI and docs (14).
+- The admin surface, the reproducible deploy and the operator commands are in.
+  Remaining before calling it a release: **run the CI on GitHub** (the workflow exists and
+  every job was run locally, but it has never executed on a runner), and the owner's
+  **licence decision**.
 
 ## Done — increment A
 
@@ -72,9 +74,40 @@ evidence is task 11.
 | 10 | Embeddable widget — one script tag, Shadow DOM, no runtime dependencies |
 | 11 | Live evaluation script, opt-in live tests, first real baseline |
 
-## Next — increment C
+## Done — increment C
 
-Tasks 12–14: the minimal admin UI, reproducible deploy with backup and restore, then CI
-and the release documentation.
+| Task | What landed |
+|---|---|
+| 12 | Admin surface at `/admin/` — the copy-desk world, plus the conversations API |
+| 13 | Digest-pinned reproducible image, real readiness, operator commands, restore guide |
+| 14 | CI workflow, honest README, this report |
+
+## Gate C — evidence (2026-09-11)
+
+Run against the **built images**, not a development server:
+
+- `docker compose build` then `up -d`: app healthy, worker started only after it, and
+  `/health/ready` reporting `database: ok, redis: ok, storage: ok`.
+- The widget bundle is produced inside the image by a pinned Node stage and served at
+  `/widget/graft.js` (7432 bytes).
+- Owner created with the CLI inside the container; a second attempt was refused by the
+  advisory lock.
+- Upload → **ready in five seconds** → the chat endpoint answered with a validated
+  citation, over the shared uploads volume between app and worker.
+- Postgres and Redis publish no host ports in the base compose file; the dev override is
+  the only place they do.
+- `alembic check` inside the container: no drift between the models and the migrations.
+- Every CI job was executed locally, including the unit tier with `DOCKER_HOST` pointed at
+  a socket that does not exist.
+
+**Not verified:** the CI has never run on a GitHub runner — there is no remote push in
+this work. Restore was documented and each of its three checks is exercised by the smoke
+above, but a full dump-and-restore cycle has not been performed end to end.
+
+## Still open before a public release
+
+1. **Licence.** Undecided, and deliberately not chosen on the owner's behalf.
+2. **Five of six providers have no live evidence.** Only the Mistral path was measured.
+3. **RBAC and the Refine dashboard** (tasks 15–16) are after the first release by design.
 
 See [roadmap](roadmap.md).

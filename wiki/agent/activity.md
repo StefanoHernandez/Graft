@@ -31,3 +31,20 @@ Append-only. Newest last.
 - Validation: documentation consistency and local-link checks; application tests not rerun (no local virtualenv).
 - Decision: preserve existing code; deliver reliable ingestion, then RAG/widget, then minimal admin/release; full RBAC/Refine follows.
 - Follow-up: colleague executes task 0 first. No source code, migrations or runtime configuration changed.
+
+## [2026-09-11] tasks 0–14, increments A/B/C
+- Agent: Claude (Opus 5), session with superpowers + ponytail + caveman + impeccable.
+- Built: unit/integration split, coded provider errors, durable originals and the embedding
+  fingerprint, provenance-carrying parser in a killable subprocess, short-transaction
+  ingestion with leases and fencing, owner login and the admin API, arq worker and sweep,
+  exact KNN retrieval, grounded answers with validated citations, the public SSE chat, the
+  widget, the live evaluation, the `/admin/` surface, and the reproducible deploy.
+- Validation: 320 backend tests (160 unit with no Docker), 17 widget tests, ruff and tsc
+  clean, `alembic check` clean. Gates A/B/C each evidenced in project/status.md.
+- Found by running rather than by testing: `WorkerSettings.redis_settings` as a method
+  killed the worker at boot while the app stayed healthy; `legacy-report` counted failed
+  documents as legacy data; `node --test <dir>` stopped discovering tests on Node 22.
+- Decision: the admin surface is the "copy desk" world (see DESIGN.md); its direction
+  contract is in `.impeccable/surfaces/`.
+- Follow-up: run the CI on a real runner, choose a licence, and get live evidence for the
+  five unverified providers. Tasks 15–16 (RBAC, Refine) come after the first release.

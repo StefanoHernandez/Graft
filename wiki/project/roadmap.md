@@ -21,7 +21,8 @@ Graft is built one phase at a time. Each phase: a spec-derived bite-sized **TDD 
 > is kept because it is how phases 1–3a were actually built.
 > Mapping: 3b → tasks 2–6 · 4 → tasks 7–9, 11 · 5 → task 5 (auth) and 15 (RBAC) ·
 > 6 → tasks 5 and 12 · 7 → task 16 · 8 → task 10 (moved earlier).
-> Increment A (tasks 0–6) is complete — see [status](status.md).
+> Increments A, B and C (tasks 0–14) are complete — see [status](status.md).
+> What remains is tasks 15–16: RBAC and the Refine dashboard, after the first release.
 
 | Phase | Scope | Status | Plan |
 |---|---|---|---|

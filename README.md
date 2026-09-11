@@ -93,7 +93,7 @@ order. Engineering detail lives in the [wiki](wiki/index.md).
 ## Getting started
 
 Prerequisites: **Docker**. For development also **Python ≥ 3.12**, **[uv](https://docs.astral.sh/uv/)**
-and **Node ≥ 20** (the widget build).
+and **Node ≥ 22** (the widget build: its test runner uses glob patterns, which Node 20 does not support).
 
 ### Run the stack
 
