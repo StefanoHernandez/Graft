@@ -211,17 +211,25 @@ async def _with_heartbeat(stream: AsyncIterator[bytes]) -> AsyncIterator[bytes]:
     for a minute, which looks to the visitor like the answer vanished.
     """
     iterator = stream.__aiter__()
-    while True:
-        pending = asyncio.ensure_future(iterator.__anext__())
+    pending: asyncio.Task[bytes] | None = None
+    try:
         while True:
-            done, _ = await asyncio.wait({pending}, timeout=HEARTBEAT_SECONDS)
-            if done:
-                break
-            yield b": keep-alive\n\n"
-        try:
-            yield pending.result()
-        except StopAsyncIteration:
-            return
+            pending = asyncio.ensure_future(iterator.__anext__())
+            while True:
+                done, _ = await asyncio.wait({pending}, timeout=HEARTBEAT_SECONDS)
+                if done:
+                    break
+                yield b": keep-alive\n\n"
+            try:
+                yield pending.result()
+            except StopAsyncIteration:
+                return
+    finally:
+        # The visitor can leave while we are parked on a keep-alive. Cancelling
+        # hands CancelledError to `_stream`, so its finally releases the Redis
+        # slots now instead of leaving them to expire, and no task is left behind.
+        if pending is not None and not pending.done():
+            pending.cancel()
 
 
 async def _parse(request: Request) -> ChatRequest | None:
