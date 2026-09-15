@@ -1,6 +1,6 @@
 ---
 title: Project status
-updated: 2026-09-11
+updated: 2026-09-15
 sources: [docs/superpowers/plans/2026-09-10-graft-redesign-plan.md, git log]
 source_commit: 5239138
 confidence: high
@@ -19,9 +19,9 @@ kept; tasks 0–4 corrected them.
 - **End to end works:** upload → durable storage → background ingestion → grounded answer
   with checkable citations, delivered to a widget on a page Graft does not serve.
 - The admin surface, the reproducible deploy and the operator commands are in.
-  Remaining before calling it a release: **run the CI on GitHub** (the workflow exists and
-  every job was run locally, but it has never executed on a runner), and the owner's
-  **licence decision**.
+  The CI is green on a real runner (2026-09-15, commit `e07d4b0`): integration, migration
+  drift, unit + lint, widget and the compose build all passed; the live job stayed skipped,
+  as designed. Remaining before calling it a release: the owner's **licence decision**.
 
 ## Done — increment A
 
@@ -100,10 +100,11 @@ Run against the **built images**, not a development server:
 - Every CI job was executed locally, including the unit tier with `DOCKER_HOST` pointed at
   a socket that does not exist.
 
-**Not verified when this was written:** the CI had never run on a GitHub runner. The
-workflow now triggers on **every push**, so the branch's first real run happens without a
-pull request; check the Actions tab for the outcome. Restore was documented and each of its three checks is exercised by the smoke
-above, but a full dump-and-restore cycle has not been performed end to end.
+**Verified since:** the CI ran on a GitHub runner on 2026-09-15 (commit `e07d4b0`) and every
+automatic job passed; the live evaluation job is manual and stayed skipped.
+
+**Still not verified:** a full dump-and-restore cycle. Restore is documented and each of its
+three checks is exercised by the smoke above, but the cycle has not been performed end to end.
 
 ## Still open before a public release
 

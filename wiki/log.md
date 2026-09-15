@@ -31,3 +31,9 @@ confidence: high
   secret. The old wording would have misled the next contributor on a security boundary.
 - Unrelated code fix in the same session: the SSE heartbeat now cancels its pending read.
 
+## [2026-09-15] update | CI green on a real runner
+- The workflow ran on GitHub for the first time (commit e07d4b0): integration, migration
+  drift, unit + lint, widget and compose build all passed; the manual live job stayed skipped.
+- status.md and handoff.md no longer ask the next contributor to do something already done.
+  Remaining open: the licence, live evidence for five providers, a full restore cycle.
+
