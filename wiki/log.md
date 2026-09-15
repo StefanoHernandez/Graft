@@ -24,3 +24,10 @@ confidence: high
 - Updated roadmap, status, decisions, context, handoff, overview-graft and activity.
 - Existing engineering pages retain current implementation facts.
 - work-tracker.md is absent; task checkboxes live in the detailed plan and the prioritized queue in handoff.
+
+## [2026-09-15] correction | session id claim
+- Corrected agent/context.md: the visitor session id does leave the server (returned in the
+  SSE `meta` event, sent back each turn). It is a 256-bit bearer capability, not a server-side
+  secret. The old wording would have misled the next contributor on a security boundary.
+- Unrelated code fix in the same session: the SSE heartbeat now cancels its pending read.
+

@@ -1,6 +1,6 @@
 ---
 title: Agent context
-updated: 2026-09-11
+updated: 2026-09-15
 sources: [docs/superpowers/**, server/graft/**, docs/superpowers/specs/2026-09-10-graft-redesign.md, docs/superpowers/plans/2026-09-10-graft-redesign-plan.md]
 source_commit: 5239138
 confidence: high
@@ -22,7 +22,11 @@ Decisions that constrain new work, each of them load-bearing:
   so a duplicated job, a resumed worker or a stale attempt must not publish over fresher work.
 - **Nothing is answered without a retrieved chunk.** No context means a fixed refusal and
   no model call, and a citation pointing at a chunk nobody retrieved is discarded.
-- **The admin token lives in memory only**; the visitor's session id never leaves the server.
+- **The admin token lives in memory only.** The visitor's session id is not a secret the
+  server keeps: it is minted server-side (256 random bits), returned to the widget in the
+  `meta` event and sent back on every turn. Whoever holds it can continue that
+  conversation, which is why it is random rather than guessable; the admin surface shows
+  only an 8-character label.
 - **One owner** in this release. Editor and viewer exist in the schema and are refused by
   the API, because shipping an unenforced permission is worse than not having one.
 
