@@ -26,10 +26,9 @@ open http://localhost:8000/admin/
 
 | Order | Task | Start here | Done when |
 |---|---|---|---|
-| 1 | Choose a licence | root `README.md` | The owner decides; do not pick one for them |
-| 2 | Verify the other five providers | `docs/evidence/rag-baseline.md`, `server/tests/live/` | Each backend has a dated live result; today only Mistral does |
-| 3 | Plan task 15: RBAC | `server/graft/security/auth.py` | Editor and viewer enforced on the backend before any button is hidden |
-| 4 | Plan task 16: Refine dashboard | `server/graft/static/admin/` | Parity with the current surface before it is removed |
+| 1 | Verify the other five providers | `docs/evidence/rag-baseline.md`, `server/tests/live/` | Each backend has a dated live result; today only Mistral does |
+| 2 | Plan task 15: RBAC | `server/graft/security/auth.py` | Editor and viewer enforced on the backend before any button is hidden |
+| 3 | Plan task 16: Refine dashboard | `server/graft/static/admin/` | Parity with the current surface before it is removed |
 
 House rules that are not obvious from the code:
 

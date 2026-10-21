@@ -1,6 +1,7 @@
 {
   "name": "graft-widget",
   "version": "0.1.0",
+  "license": "Apache-2.0",
   "private": true,
   "description": "Embeddable Graft chat widget: one script tag, Shadow DOM, no runtime dependencies.",
   "type": "module",

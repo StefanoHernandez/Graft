@@ -1,6 +1,6 @@
 ---
 title: Project status
-updated: 2026-09-15
+updated: 2026-10-21
 sources: [docs/superpowers/plans/2026-09-10-graft-redesign-plan.md, git log]
 source_commit: 5239138
 confidence: high
@@ -21,7 +21,7 @@ kept; tasks 0–4 corrected them.
 - The admin surface, the reproducible deploy and the operator commands are in.
   The CI is green on a real runner (2026-09-15, commit `e07d4b0`): integration, migration
   drift, unit + lint, widget and the compose build all passed; the live job stayed skipped,
-  as designed. Remaining before calling it a release: the owner's **licence decision**.
+  as designed. Licensed under Apache-2.0 (owner's decision, 2026-10-21).
 
 ## Done — increment A
 
@@ -108,8 +108,7 @@ three checks is exercised by the smoke above, but the cycle has not been perform
 
 ## Still open before a public release
 
-1. **Licence.** Undecided, and deliberately not chosen on the owner's behalf.
-2. **Five of six providers have no live evidence.** Only the Mistral path was measured.
-3. **RBAC and the Refine dashboard** (tasks 15–16) are after the first release by design.
+1. **Five of six providers have no live evidence.** Only the Mistral path was measured.
+2. **RBAC and the Refine dashboard** (tasks 15–16) are after the first release by design.
 
 See [roadmap](roadmap.md).

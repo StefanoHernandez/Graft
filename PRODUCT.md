@@ -106,7 +106,7 @@ Real, measured, and safe to state:
 - 301 backend tests plus 17 widget tests.
 
 Absent, and not to be invented: no customers, no testimonials, no benchmarks against
-other products, no pricing, no uptime figures, no license decision yet.
+other products, no pricing, no uptime figures.
 
 ## Product Principles
 

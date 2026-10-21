@@ -2,7 +2,7 @@
 
 - **Data**: 2026-09-08
 - **Stato**: Draft per review
-- **Autore**: Stefano Paradisi (+ Claude)
+- **Autore**: Stefano Hernandez (+ Claude)
 
 ## 1. Sintesi
 

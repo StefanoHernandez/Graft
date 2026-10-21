@@ -196,5 +196,7 @@ See [wiki/project/status.md](wiki/project/status.md) for the full picture.
 
 ## License
 
-Intended as open source. **License not yet chosen** — to be decided by the project owner
-before any public distribution.
+Licensed under the [Apache License 2.0](LICENSE). Copyright 2026 Stefano Hernandez.
+
+If you redistribute Graft or a work derived from it, keep the [NOTICE](NOTICE) file with it:
+the licence requires that attribution to travel with the code.

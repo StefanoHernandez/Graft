@@ -45,7 +45,8 @@ Key choices and why. Each links to the engineering page that implements it.
 
 ## Open / deferred
 
-- **License** not yet chosen (needed before public OSS release). *To be confirmed.*
+- **License:** Apache-2.0, chosen by the owner on 2026-10-21 because it requires the
+  NOTICE attribution to travel with every redistribution.
 - Normalize provider mid-stream errors before Phase 4; add `anthropic` pin ceiling; live
   smoke-test Google/Mistral compat endpoints; decide where uploaded source files are stored
   (Phase 6). See [roadmap](roadmap.md) prerequisites.

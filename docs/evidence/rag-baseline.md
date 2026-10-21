@@ -1,6 +1,6 @@
 # RAG baseline — first live evaluation
 
-**Date:** 2026-09-11 · **Commit:** `79447b0` + task 11 · **Reviewer:** Stefano / Claude
+**Date:** 2026-09-11 · **Commit:** `79447b0` + task 11 · **Reviewer:** Stefano Hernandez / Claude
 
 The first measurement of what Graft actually answers. Everything before this used fake
 providers, which prove the plumbing and nothing about quality.

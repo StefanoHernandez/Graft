@@ -44,12 +44,10 @@ confidence: high
   self-hosted, bring-your-own-model, multi-bot.
 - **Current status:** Early development; backend foundation, 6-provider LLM layer,
   and ingestion pipeline built and tested. UI/widget/chat endpoint pending.
-- **Role in the user's work/life:** Personal project by Stefano Paradisi
-  (gransassotech.org). Da confermare oltre a questo.
-- **Personal motivation:** Da confermare.
+- **Role in the user's work/life:** Personal project by Stefano Hernandez.
 - **Technologies / skills represented:** Python/FastAPI, async SQLAlchemy,
   pgvector/RAG, LLM provider integration, Alembic, Docker, TDD with testcontainers,
   (planned) React/Refine + TypeScript widget.
 - **Important next steps:** Revised plan task 0 (baseline verification), then reliable ingestion with owner auth, RAG and early widget.
 - **Long-term notes:** Revised delivery milestones supersede original 8-phase execution order.
-  Licence not yet chosen. Repo pushed to GitHub for collaboration.
+  Licensed under Apache-2.0. Repo pushed to GitHub for collaboration.
